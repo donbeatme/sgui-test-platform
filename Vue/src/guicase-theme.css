@@ -1,0 +1,24 @@
+/* SGUI workspace theme. */
+:root:not([data-theme='black']) { --primary-6: 22,119,255; --color-bg-1:#f0f2f5; --color-bg-2:#fff; --color-border-2:#d9e1eb; }
+.main-layout.guicase-layout { height:100dvh; min-height:0; flex:none; background:var(--color-bg-1) !important; }
+.guicase-layout .header { margin:0 !important; border-radius:0 !important; box-shadow:none !important; border-bottom:1px solid var(--color-border-2); height:60px !important; flex-shrink:0; }
+.guicase-layout .sider { margin:0 !important; border-radius:0 !important; background:#0e3f77 !important; box-shadow:none !important; }
+.guicase-layout .sider .arco-layout-sider-children,.guicase-layout .sider .menu,.guicase-layout .sider .arco-menu-inner { background:#0e3f77 !important; }
+.guicase-layout .sider .arco-menu-item,.guicase-layout .sider .arco-menu-inline-header { border-radius:3px !important; color:#d8e6f7 !important; background:transparent !important; margin:3px 8px !important; padding:0 12px !important; min-height:42px; box-shadow:none !important; }
+.guicase-layout .sider .arco-menu-item a,.guicase-layout .sider .arco-menu-icon,.guicase-layout .sider .arco-menu-inline-header .arco-icon { color:inherit !important; }
+.guicase-layout .sider .arco-menu-selected,.guicase-layout .sider .arco-menu-item:hover,.guicase-layout .sider .arco-menu-inline-header:hover { background:#1677ff !important; color:white !important; }
+.guicase-layout .sider .arco-menu-inline-content { background:#0b3566 !important; }
+.guicase-layout .sider-footer { background:#0e3f77 !important; border-color:#315887 !important; }
+.guicase-layout .sider-footer button { color:#d8e6f7 !important; }
+.guicase-layout .content { height:100%; min-height:0; min-width:0; margin:0 !important; padding:18px !important; background:var(--color-bg-1) !important; border-radius:0 !important; box-shadow:none !important; }
+.gc-workbench { text-align:left; }
+.guicase-layout .arco-card { box-shadow:none !important; border:1px solid var(--color-border-2); border-radius:5px; }
+.guicase-layout .arco-table-th { font-size:13px; }
+.guicase-layout .arco-btn { border-radius:4px; box-shadow:none; }
+.guicase-layout .arco-input-wrapper,.guicase-layout .arco-select-view-single,.guicase-layout .arco-textarea-wrapper { border-radius:4px; }
+.guicase-layout .logo { width:215px !important; flex:none; margin-right:8px; font-size:17px; }
+.guicase-layout .logo-icon { width:30px; height:30px; }
+.guicase-layout .menu { padding-bottom:60px !important; }
+/* The header owns its height; page views fill and scroll within the remaining space. */
+.guicase-layout .inner-layout { height:auto; min-height:0; flex:1; }
+@media(max-width:1000px){.guicase-layout .content{padding:10px!important}.guicase-layout .header{padding:0 12px!important}.guicase-layout .version-badge{display:none}}

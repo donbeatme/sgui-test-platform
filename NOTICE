@@ -1,0 +1,18 @@
+SGUI Test Platform
+
+This distribution contains modified source code derived from WHartTest.
+Upstream project: https://github.com/MGdaasLab/WHartTest
+Upstream copyright: 2026 Shandong Maigang Data Systems Co., Ltd.
+
+The original LICENSE and component-level license/third-party notice files are
+retained. The upstream LICENSE includes additional conditions concerning
+branding, logos, attribution, and related modifications; consult its full text.
+This repository does not replace those conditions with an unmodified Apache
+License or grant rights beyond those of the original rights holders.
+
+Modifications in this source snapshot include the SGUI/GuiCase workbench and
+interface integration, document/image case generation, deployment helpers,
+directory-prefix removal, and public deployment documentation. The public
+snapshot omits local credentials, operational data, caches, and build outputs.
+Hard-coded credential candidates were removed from the public configuration
+example and the WeKnora skill helper. Snapshot prepared on 2026-09-19.

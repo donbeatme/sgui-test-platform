@@ -1,0 +1,111 @@
+# Environment files
+.env
+.cunzhi-memory
+.env.local
+.env.*.local
+*.env.*
+!*.env.example
+
+# IDE / Editor
+.vscode/
+.idea/
+.cursor/
+.claude/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+data
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+docker-images
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
+
+# Build artifacts
+build/
+dist/
+out/
+PandaWiki-skill/
+WHartTest_Client/
+# Dependencies (handled by subdirectories, but backup)
+node_modules/
+nltk_data/
+
+# Python cache (handled by Django .gitignore, but backup)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database files (project-wide)
+*.sqlite
+*.sqlite3
+*.db
+
+# Documentation build
+docs/_build/
+docs/.vitepress/cache/
+# Playwright截图目录
+playwright-screenshots/
+Django/chat_history.sqlite-shm
+Django/chat_history.sqlite-wal
+.gemini/settings.json
+Actuator/browsers/
+.github/copilot-instructions.md
+Django/celerybeat-schedule
+AGENTS.md
+architecture/
+.roo/mcp.json
+docs/superpowers/
+docs/competitive-analysis/
+
+# zcode
+.zcode
+~/.dsh
+.freebuff/project-id
+
+/local/.env
+/data/
+/local/actuator-windows.toml
+/local/actuator-custom.toml
+/local/login-credentials.txt
+/local/test-output/
+/Django/data/
+/local/actuator-process.json
+/local/sgui-build/
+/local/branding-backup-2026-09-14/
+/Django/local-entrypoint.sh
+/Django/workbench_bootstrap.py
+
+/local/sgui-cleanup-backup-2026-09-14/
+
+# Private local configuration and generated output
+/Actuator/config.toml
+/local/memory-optimization/
+/local/*-process.json
+/local/*credentials*
+/local/actuator-custom.toml
+**/test-results/
+**/playwright-report/
+*.sql
+*.dump
+*.pem
+*.key

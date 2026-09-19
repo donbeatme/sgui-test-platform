@@ -1,0 +1,3571 @@
+{
+  "meta": {
+    "title": "散客预订与出票全流程测试用例集",
+    "desc": "基于 01 图 40 张截图 + 02 文档材料 6 份 PDF 生成",
+    "generated_at": "2026-08-30",
+    "source": {
+      "images": "飞书 GUI项目文档库 / 01 图（40 张）",
+      "docs": [
+        "02 散客预定需求.pdf",
+        "02 散客预定feature文件.pdf",
+        "03 测试用例模版.pdf",
+        "04 散客预定功能+回归测试用例.pdf",
+        "04 测试用例说明.pdf",
+        "05 测试用例各个属性的含义-20260324.pdf"
+      ]
+    },
+    "conventions": {
+      "module_root": "SGUI2.0/S05预订/02 散客预订",
+      "流程编号说明": "S0501P01W 为存量需求文档已有流程号；S0501P20W（散客订单出票）为本次自拟编号，存量用例库未覆盖出票，需与业务确认后回填正式流程号",
+      "优先级说明": "P0/P1/P2 写在用例名中便于筛选；TcPriority 列按《05 属性文档》取 高/中/低"
+    }
+  },
+  "version": "1.0",
+  "cases": [
+    {
+      "tc_sno": "SGUI-TC-31285800306",
+      "tc_name": "01 P1 航班-AV查询-起到达与日期查询出航班列表-返回舱位矩阵",
+      "module_name": "01 AV查询",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/01 AV查询",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "AV 查询主流程，验证航班结果列表与舱位矩阵",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击左侧 PNR 面板「航班」卡片的【添加航段】",
+          "expected": "右侧操作区打开「添加航段」Tab，默认展示 AV查询[AV] 子标签页",
+          "action": "click",
+          "target": "航班",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "在【起飞】输入 PEK",
+          "expected": "输入框显示 PEK，无校验报错",
+          "action": "input",
+          "target": "起飞",
+          "value": "PEK",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "在【到达】输入 SHA",
+          "expected": "输入框显示 SHA",
+          "action": "input",
+          "target": "到达",
+          "value": "SHA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "在【出发日期】选择 2026-09-10",
+          "expected": "日期控件回填 2026-09-10",
+          "action": "input",
+          "target": "出发日期",
+          "value": "2026-09-10",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "点击【查询 Enter】",
+          "expected": "结果列表展示 PEK-SHA 2026-09-10 的可用航班，每行右侧呈现舱位等级按钮矩阵（Y/B/M/H/K/L/Q/V 等）",
+          "action": "click",
+          "target": "查询 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对结果列表字段完整性",
+          "expected": "每行包含航班号、起飞/到达时间与机场、经停信息、飞行时长，底部有分页与共 X 页提示",
+          "action": "assert",
+          "target": "结果列表",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 1,
+      "remark": "",
+      "source_images": [
+        "16_航班-添加航段-AV查询.jpg",
+        "15_航班-添加航段-AV查询国内航班-选航班点击舱位 保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31220109140",
+      "tc_name": "02 P2 航班-AV查询-查询条件为空-校验必填提示",
+      "module_name": "01 AV查询",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/01 AV查询",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "AV 查询必填项校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【航班】卡片的【添加航段】",
+          "expected": "右侧打开「添加航段」Tab",
+          "action": "click",
+          "target": "航班",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "起飞、到达、出发日期均留空，直接点击【查询 Enter】",
+          "expected": "页面拦截提交，起飞/到达/出发日期至少一项给出必填提示，不发起查询请求",
+          "action": "click",
+          "target": "查询 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "仅填写【起飞】PEK，其余留空后点击【查询 Enter】",
+          "expected": "到达与出发日期给出必填提示，不发起查询请求",
+          "action": "input",
+          "target": "起飞",
+          "value": "PEK",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 2,
+      "remark": "",
+      "source_images": [
+        "16_航班-添加航段-AV查询.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31261659118",
+      "tc_name": "03 P1 航班-AV查询-选中航班点击舱位并保存-航段占位成功",
+      "module_name": "01 AV查询",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/01 AV查询",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "AV 查询结果选择舱位并添加到航段组",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【添加航段】，进入 AV查询[AV] 子标签页",
+          "expected": "展示查询条件区与结果列表区",
+          "action": "click",
+          "target": "航班",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "输入【起飞】PEK、到达 SHA、出发日期 2026-09-10",
+          "expected": "查询条件填写完整",
+          "action": "input",
+          "target": "起飞",
+          "value": "PEK",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击【查询 Enter】",
+          "expected": "返回航班列表",
+          "action": "click",
+          "target": "查询 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "在 CA1832 航班行点击舱位等级按钮【Y】",
+          "expected": "该舱位按钮呈选中态，行数据回填至下方表单（航班号 CA1832、舱位 Y）",
+          "action": "click",
+          "target": "CA1832 航班的 Y 舱位按钮",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "点击【添加 Enter】",
+          "expected": "提示添加成功；左侧「航班」卡片新增一条航段，状态显示为已占位（DK/HK）",
+          "action": "click",
+          "target": "添加 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对航班卡片顶部的占位倒计时",
+          "expected": "出现红色占位倒计时（如 00:13:57），提示座位保留剩余时间",
+          "action": "assert",
+          "target": "占位倒计时",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 3,
+      "remark": "",
+      "source_images": [
+        "15_航班-添加航段-AV查询国内航班-选航班点击舱位 保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31253482229",
+      "tc_name": "04 P1 航班-添加航段SS-快捷导入SS指令-自动解析填充表单",
+      "module_name": "02 添加航段SS",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/02 添加航段SS",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "SS 指令快捷导入的解析准确性",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "在「添加航段」Tab 中切换到【添加航段[SS]】子标签页",
+          "expected": "展示快捷导入文本框与航段表单字段（起飞/到达/出发日期/舱位/航司/航班号/申请状态/人数/起降时刻）",
+          "action": "click",
+          "target": "添加航段[SS]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "在快捷导入文本框粘贴 SS 指令：SS CA4542 Y 10SEP26 SHACKG NN2",
+          "expected": "文本框完整接收指令文本",
+          "action": "input",
+          "target": "快捷导入文本框",
+          "value": "SS CA4542 Y 10SEP26 SHACKG NN2",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击【导入】",
+          "expected": "系统解析指令并自动回填表单：航司 CA、航班号 4542、舱位 Y、日期 10SEP26、出发 SHACKG、人数 NN2",
+          "action": "click",
+          "target": "导入",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "逐字段核对解析结果与指令的一致性",
+          "expected": "起飞/到达/出发日期/舱位/航司/航班号/申请状态/人数 与指令内容完全一致，无字段错位",
+          "action": "assert",
+          "target": "表单字段",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "点击【重置】",
+          "expected": "表单所有字段清空，回到初始态",
+          "action": "click",
+          "target": "重置",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 4,
+      "remark": "",
+      "source_images": [
+        "12_航班-添加航段-添加地面段-快捷导入输入.jpg",
+        "13_航班-添加航段-添加地面段-快捷导入-点击导入.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31277861476",
+      "tc_name": "05 P0 航班-添加航段SS-快捷导入后添加保存-非OPEN段自动占位",
+      "module_name": "02 添加航段SS",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/02 添加航段SS",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "SS 导入 + 非 OPEN 段自动占位主流程",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "切换到【添加航段[SS]】子标签页",
+          "expected": "展示快捷导入区与航段表单",
+          "action": "click",
+          "target": "添加航段[SS]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "粘贴指令 SS CA4542 Y 10SEP26 SHACKG NN2 并点击【导入】",
+          "expected": "表单字段自动回填",
+          "action": "input",
+          "target": "快捷导入文本框",
+          "value": "SS CA4542 Y 10SEP26 SHACKG NN2",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "确认 OPEN 段开关处于关闭状态",
+          "expected": "提示文案显示「添加非 OPEN 航段将自动占位」",
+          "action": "check",
+          "target": "OPEN 段开关",
+          "value": "关闭",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击【添加 Enter】",
+          "expected": "提示添加成功，航段写入左侧「航班」卡片并执行自动占位",
+          "action": "click",
+          "target": "添加 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对左侧航班卡片航段状态",
+          "expected": "新增航段状态为已占位（DK 或 HK），航班号、舱位、日期、起降机场与导入内容一致",
+          "action": "assert",
+          "target": "航班卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对右侧表单数据与左侧卡片展示数据",
+          "expected": "两侧航班号、舱位、日期、出发/到达机场完全一致",
+          "action": "assert",
+          "target": "左右一致性",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 5,
+      "remark": "",
+      "source_images": [
+        "13_航班-添加航段-添加地面段-快捷导入-点击导入.jpg",
+        "14_航班-添加航段-添加地面段-快捷导入-点击导入-保存1.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31227988017",
+      "tc_name": "06 P1 航班-添加航段SS-开启OPEN段-不触发占位",
+      "module_name": "02 添加航段SS",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/02 添加航段SS",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "OPEN 段与非 OPEN 段的占位规则差异",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "切换到【添加航段[SS]】子标签页",
+          "expected": "展示航段表单与 OPEN 段开关",
+          "action": "click",
+          "target": "添加航段[SS]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "开启 OPEN 段开关",
+          "expected": "提示文案切换为「添加 OPEN 航段不会做占位处理」，航班号、申请状态等相关字段状态随之变化",
+          "action": "check",
+          "target": "OPEN 段开关",
+          "value": "开启",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写起飞 PEK、到达 SHA、出发日期 2026-09-10、舱位 Y",
+          "expected": "表单填写完整",
+          "action": "input",
+          "target": "起飞",
+          "value": "PEK",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击【添加 Enter】",
+          "expected": "提示添加成功，航段写入左侧「航班」卡片",
+          "action": "click",
+          "target": "添加 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对 OPEN 航段状态",
+          "expected": "该航段不显示占位状态与占位倒计时，与 OPEN 段不做占位处理的规则一致",
+          "action": "assert",
+          "target": "航班卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 6,
+      "remark": "",
+      "source_images": [
+        "09_航班-添加航段-添加航段SS.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31202842025",
+      "tc_name": "07 P1 航班-添加地面段SA-填写并保存-地面段不占位",
+      "module_name": "03 添加地面段SA",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/01 航段组/03 添加地面段SA",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "地面段（SA）录入与不占位校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "在「添加航段」Tab 中切换到【添加地面段[SA]】子标签页",
+          "expected": "展示字段：起飞、到达、出发日期、航班号、舱位、状态",
+          "action": "click",
+          "target": "添加地面段[SA]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "填写【起飞】PVG、【到达】SHA",
+          "expected": "起到达填写完成",
+          "action": "input",
+          "target": "起飞",
+          "value": "PVG",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写【出发日期】2026-09-10、航班号、舱位、状态",
+          "expected": "表单填写完整",
+          "action": "input",
+          "target": "出发日期",
+          "value": "2026-09-10",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击【添加 Enter】",
+          "expected": "提示添加成功，左侧「航班」卡片新增一条地面段，以 ARNk 形式展示（如 PVG → SHA）",
+          "action": "click",
+          "target": "添加 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对地面段是否触发占位",
+          "expected": "地面段不显示占位状态与占位倒计时，符合地面段无需占位的规则",
+          "action": "assert",
+          "target": "占位状态",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 7,
+      "remark": "",
+      "source_images": [
+        "11_航班-添加航段-添加地面段.jpg",
+        "10_航班-添加航段-添加地面段SA-保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31296197201",
+      "tc_name": "08 P2 旅客-国内-添加成人-必填项为空-校验提示",
+      "module_name": "01 添加成人",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/01 添加成人",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国内成人旅客必填项校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击左侧「旅客」卡片的【编辑旅客】",
+          "expected": "右侧打开「编辑旅客」Tab",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "确认停留在【国内】子标签页",
+          "expected": "表单展示：旅客姓名[NM]、旅客类型、证件类型、证件号码、联系方式[OSI CTCM]、联系方式[SSR CTCM]、联系邮箱[SSR CTCE]",
+          "action": "click",
+          "target": "国内",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "姓名、证件类型、证件号码均留空，点击【保存 Enter】",
+          "expected": "页面拦截提交，旅客姓名、证件类型、证件号码三项给出红色「必填」提示，不写入旅客卡片",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "仅填写【旅客姓名[NM]】LIU/BAO 后再次保存",
+          "expected": "证件类型与证件号码仍给出必填提示，不写入旅客卡片",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "LIU/BAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 8,
+      "remark": "",
+      "source_images": [
+        "24_旅客-编辑旅客-国内.jpg",
+        "25_旅客-编辑旅客-国内-证件类型.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31244046256",
+      "tc_name": "09 P0 旅客-国内-添加2名成人旅客-保存成功",
+      "module_name": "01 添加成人",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/01 添加成人",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国内成人旅客录入主流程（含多名）",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示国内旅客表单",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "第 1 名旅客：旅客类型选【成人】，填写姓名 LIU/BAO",
+          "expected": "姓名回填，无格式报错",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "LIU/BAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "选择证件类型",
+          "expected": "下拉默认项为「公民身份证/港澳台居民居住证 FOID NI」，选中后回填",
+          "action": "select",
+          "target": "证件类型",
+          "value": "公民身份证/港澳台居民居住证 FOID NI",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "填写证件号码 310101199502021234",
+          "expected": "证件号码回填，无格式报错",
+          "action": "input",
+          "target": "证件号码",
+          "value": "310101199502021234",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "填写联系方式[OSI CTCM] 13512345678",
+          "expected": "联系方式回填，占位提示消失",
+          "action": "input",
+          "target": "联系方式[OSI CTCM]",
+          "value": "13512345678",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "点击【添加旅客】，录入第 2 名成人旅客（姓名 LIU/MEI，证件号 310101199003031234）",
+          "expected": "表单下方新增一个旅客信息输入区域，字段与第 1 名一致",
+          "action": "click",
+          "target": "添加旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧「旅客」卡片新增 2 条成人旅客记录，序号、姓名、旅客类型、性别、证件号、联系方式完整",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 8,
+          "desc": "核对右侧保存的旅客信息与左侧旅客卡片展示",
+          "expected": "两侧姓名、证件类型、证件号码、联系方式完全一致",
+          "action": "assert",
+          "target": "左右一致性",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 9,
+      "remark": "",
+      "source_images": [
+        "24_旅客-编辑旅客-国内.jpg",
+        "26_旅客-编辑旅客-国内-添加2名成人旅客-保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31297852920",
+      "tc_name": "10 P1 旅客-国内-证件类型下拉选项-枚举全部可选项",
+      "module_name": "01 添加成人",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/01 添加成人",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国内旅客证件类型枚举",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示国内旅客表单",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【证件类型】下拉",
+          "expected": "展开全部证件类型选项",
+          "action": "click",
+          "target": "证件类型",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "枚举核对选项：公民身份证/港澳台居民居住证 FOID NI、特殊身份证 FOID UU、护照 DOCS P、电子护照 DOCS IP、军方证件 DOCS M、海员证 DOCS G、通行证 DOCS A、外交人员证 DOCS C、户口本/学生证 DOCS I、外国人永久居留证/出入境证 FOID NI 或 DOCS F",
+          "expected": "下拉选项与枚举清单完全一致，默认选中「公民身份证/港澳台居民居住证 FOID NI」",
+          "action": "assert",
+          "target": "证件类型选项列表",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "改选「护照 DOCS P」",
+          "expected": "选中项回填，页面不报错",
+          "action": "select",
+          "target": "证件类型",
+          "value": "护照 DOCS P",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "枚举值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 10,
+      "remark": "",
+      "source_images": [
+        "25_旅客-编辑旅客-国内-证件类型.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31251473993",
+      "tc_name": "11 P1 旅客-国内-修改1名成人为儿童旅客-保存后姓名追加CHD",
+      "module_name": "02 添加儿童",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/02 添加儿童",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "成人改儿童的类型切换与命名/运价联动",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示国内旅客表单",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "将已录入的 1 名成人旅客类型由【成人】改为【儿童】，补充出生日期 2018-05-20",
+          "expected": "旅客类型切换为儿童，出生日期字段变为可见/必填",
+          "action": "select",
+          "target": "旅客类型",
+          "value": "儿童",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧旅客卡片该旅客类型变为「儿童」",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对旅客姓名展示",
+          "expected": "姓名后自动追加 CHD 标识，与儿童旅客命名规则一致",
+          "action": "assert",
+          "target": "旅客姓名后缀",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "切换到「销售运价」Tab 查看该旅客的运价类别",
+          "expected": "儿童旅客匹配儿童运价 Farebasis（如 YCH50+YCH50），不再使用成人运价 Y+Y",
+          "action": "assert",
+          "target": "Farebasis 关联",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 11,
+      "remark": "",
+      "source_images": [
+        "27_旅客-国内-修改1名成人为儿童旅客 保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31209186418",
+      "tc_name": "12 P1 旅客-国内-1名成人旅客添加同行婴儿-保存成功",
+      "module_name": "03 添加婴儿",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/03 添加婴儿",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "成人携带同行婴儿的挂靠与运价匹配",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示国内旅客表单",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "在成人旅客表单下方点击【添加同行婴儿】",
+          "expected": "展开婴儿子表单：婴儿姓名[XN]、类型（INF）、姓名[SSR INFT]、出生日期、持有人标识",
+          "action": "click",
+          "target": "添加同行婴儿",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写婴儿姓名[XN] LIU/BAOBAO",
+          "expected": "婴儿姓名回填",
+          "action": "input",
+          "target": "婴儿姓名[XN]",
+          "value": "LIU/BAOBAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "填写出生日期 2025-03-01",
+          "expected": "出生日期回填",
+          "action": "input",
+          "target": "出生日期",
+          "value": "2025-03-01",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧旅客卡片中该婴儿以嵌套形式挂靠在对应成人旅客下方",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对婴儿与成人的挂靠展示",
+          "expected": "婴儿条目嵌套显示在成人旅客下方，展示婴儿姓名与出生日期，不单独占用航段座位",
+          "action": "assert",
+          "target": "婴儿挂靠关系",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "查看该婴儿的运价类别",
+          "expected": "婴儿匹配婴儿运价 Farebasis（如 YIN90+YIN90）",
+          "action": "assert",
+          "target": "Farebasis 关联",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 12,
+      "remark": "",
+      "source_images": [
+        "28_旅客-国内-1名成人旅客添加婴儿 保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31289737105",
+      "tc_name": "13 P0 旅客-国际港澳台-添加成人旅客-含签发国与有效期-保存成功",
+      "module_name": "04 国际港澳台旅客",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/04 国际港澳台旅客",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国际/港澳台旅客完整字段录入",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】",
+          "expected": "右侧打开「编辑旅客」Tab",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "切换到【国际 港澳台】子标签页",
+          "expected": "表单在国内字段基础上追加：证件姓名（英文姓名）、签发国/地区、国籍/地区、有效期、出生日期、持有人标识、性别；顶部显示黄色提示「航班类型为外航航班时可补充儿童/婴儿姓名后缀（选填）」",
+          "action": "click",
+          "target": "国际 港澳台",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写姓名 SMITH/JOHN（以 / 分隔姓与名）",
+          "expected": "姓名回填，无格式报错",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "SMITH/JOHN",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "填写证件姓名（英文姓名）",
+          "expected": "证件姓名回填",
+          "action": "input",
+          "target": "证件姓名",
+          "value": "SMITH/JOHN",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "选择证件类型",
+          "expected": "国际上下文下默认项为「护照 DOCS P」",
+          "action": "select",
+          "target": "证件类型",
+          "value": "护照 DOCS P",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "填写证件号码 G12345678",
+          "expected": "证件号码回填",
+          "action": "input",
+          "target": "证件号码",
+          "value": "G12345678",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "填写签发国/地区 CN、国籍/地区 CN",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "签发国/地区",
+          "value": "CN",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 8,
+          "desc": "填写有效期 2030-12-31",
+          "expected": "有效期回填",
+          "action": "input",
+          "target": "有效期",
+          "value": "2030-12-31",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 9,
+          "desc": "选择性别",
+          "expected": "性别下拉可选项为 男 / 女 / 未披露性别",
+          "action": "select",
+          "target": "性别",
+          "value": "男",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 10,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧旅客卡片新增该国际旅客记录，字段完整",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 13,
+      "remark": "",
+      "source_images": [
+        "21_旅客-编辑旅客-国际 港澳台.jpg",
+        "22_旅客-编辑旅客-国际 港澳台-证件类型.jpg",
+        "23_旅客-编辑旅客-国际 港澳台-性别.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31266441088",
+      "tc_name": "14 P2 旅客-国际港澳台-性别下拉选项-枚举男/女/未披露性别",
+      "module_name": "04 国际港澳台旅客",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/04 国际港澳台旅客",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国际旅客性别枚举",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "切换到【国际 港澳台】子标签页",
+          "expected": "展示国际旅客表单",
+          "action": "click",
+          "target": "国际 港澳台",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【性别】下拉",
+          "expected": "展开性别选项",
+          "action": "click",
+          "target": "性别",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "枚举核对选项：男、女、未披露性别",
+          "expected": "下拉选项与枚举清单完全一致，无多余选项",
+          "action": "assert",
+          "target": "性别选项列表",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "枚举值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 14,
+      "remark": "",
+      "source_images": [
+        "23_旅客-编辑旅客-国际 港澳台-性别.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31225203933",
+      "tc_name": "15 P1 旅客-英文姓名未用斜杠分隔-前端拦截提示",
+      "module_name": "05 旅客姓名校验",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/05 旅客姓名校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "英文/中文姓名格式校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示旅客表单",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "在【旅客姓名[NM]】输入不含 / 的英文名 LIUBAO",
+          "expected": "输入被接受但失焦或提交时触发校验",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "LIUBAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击【保存 Enter】",
+          "expected": "前端拦截并提示「英文姓名必须以/分隔」，不写入旅客卡片",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "改为 LIU/BAO 后重新保存",
+          "expected": "校验通过，旅客写入左侧旅客卡片",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "LIU/BAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "输入中文姓名「刘宝」后保存",
+          "expected": "中文姓名校验通过（允许中文、空格、英文、数字），写入旅客卡片",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "刘宝",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 15,
+      "remark": "",
+      "source_images": [
+        "24_旅客-编辑旅客-国内.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31266590649",
+      "tc_name": "16 P2 旅客-姓名与证件号超长输入-边界值校验",
+      "module_name": "05 旅客姓名校验",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/02 旅客组、婴儿名组/05 旅客姓名校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "姓名与证件号长度边界值",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示旅客表单",
+          "action": "click",
+          "target": "旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "在【旅客姓名[NM]】输入 21 个字符（超过 an..20 约束）",
+          "expected": "前端拦截或截断，给出长度超限提示，不允许保存",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "AAAAAAAAAAAAAAAAAAAAA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "改为 20 个字符（边界内）",
+          "expected": "校验通过",
+          "action": "input",
+          "target": "旅客姓名[NM]",
+          "value": "AAAAAAAAAAAAAAAAAAAA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "在【证件号码】输入 19 位（超过 an..18 约束）",
+          "expected": "前端拦截或截断，给出长度超限提示",
+          "action": "input",
+          "target": "证件号码",
+          "value": "1111111111111111111",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "改为 18 位（边界内）",
+          "expected": "校验通过，可保存",
+          "action": "input",
+          "target": "证件号码",
+          "value": "111111111111111111",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "边界值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 16,
+      "remark": "",
+      "source_images": [
+        "24_旅客-编辑旅客-国内.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31288604414",
+      "tc_name": "17 P0 运价-销售运价-成人旅客-查询并单选运价-保存成功",
+      "module_name": "01 国内-自动运价",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/06 运价计算组、旅行代码组TC、签注组EI/01 国内-自动运价",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "成人旅客销售运价查询与保存主流程",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击左侧「运价」卡片的【销售运价】",
+          "expected": "右侧打开「销售运价」Tab",
+          "action": "click",
+          "target": "运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "确认运价模式为【自动运价】、币种为 CNY",
+          "expected": "模式与币种展示正确，展示查询条件：销售币种、大客户编码、专属、Farebasis、折扣代码、政府采购、CC",
+          "action": "select",
+          "target": "运价模式",
+          "value": "自动运价",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "在旅客选择下拉中指定【成人 LIU/BAO】",
+          "expected": "运价列表按所选旅客过滤",
+          "action": "select",
+          "target": "旅客选择",
+          "value": "成人1 LIU/BAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击查询",
+          "expected": "返回该成人旅客的可用运价列表",
+          "action": "click",
+          "target": "查询",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对结果列表字段",
+          "expected": "每行包含票价、税总、总价、大客户编码、代理费、免费行李、票规、品牌；运价类别形如 Y+Y、Y+Y/CA0L253504",
+          "action": "assert",
+          "target": "运价结果列表",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "单选一条运价（如 Y+Y）",
+          "expected": "该条运价呈选中态",
+          "action": "select",
+          "target": "运价条目",
+          "value": "Y+Y",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧「运价」卡片新增该成人的运价记录，展示 Farebasis、票面价、税总、代理费、合计",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 8,
+          "desc": "核对旅客卡片的运价状态",
+          "expected": "该旅客由「无运价」变为「有运价」",
+          "action": "assert",
+          "target": "旅客运价状态",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 17,
+      "remark": "",
+      "source_images": [
+        "03_运价-销售运价-成人旅客运价选择.jpg",
+        "04_运价-销售运价-成人旅客运价显示.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31274145668",
+      "tc_name": "18 P1 运价-销售运价-勾选全部成人-批量应用同一条运价",
+      "module_name": "01 国内-自动运价",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/06 运价计算组、旅行代码组TC、签注组EI/01 国内-自动运价",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "全部成人批量应用运价",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【销售运价】",
+          "expected": "打开销售运价 Tab",
+          "action": "click",
+          "target": "运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "在旅客选择区勾选【全部成人】",
+          "expected": "批量选中所有成人旅客，运价列表按全部成人过滤",
+          "action": "check",
+          "target": "全部成人",
+          "value": "勾选",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击查询",
+          "expected": "返回适用于全部成人的运价列表",
+          "action": "click",
+          "target": "查询",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "单选一条运价",
+          "expected": "该条运价呈选中态",
+          "action": "select",
+          "target": "运价条目",
+          "value": "Y+Y",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧运价卡片按旅客类型汇总，每名成人各生成一条相同 Farebasis 的运价记录",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对运价卡片的合计金额",
+          "expected": "票面价、税总、代理费、合计按成人人数正确累加，与单价 × 人数一致",
+          "action": "assert",
+          "target": "运价汇总",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 18,
+      "remark": "",
+      "source_images": [
+        "05_运价-销售运价-成人全部旅客运价显示.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31243524601",
+      "tc_name": "19 P1 运价-销售运价-儿童旅客与婴儿旅客-分别匹配对应运价",
+      "module_name": "01 国内-自动运价",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/06 运价计算组、旅行代码组TC、签注组EI/01 国内-自动运价",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "儿童/婴儿运价分别匹配",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【销售运价】",
+          "expected": "打开销售运价 Tab",
+          "action": "click",
+          "target": "运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "旅客选择切换为【儿童 LIU/XIAO】，点击查询",
+          "expected": "返回儿童运价列表，运价类别形如 YCH50+YCH50",
+          "action": "select",
+          "target": "旅客选择",
+          "value": "儿童 LIU/XIAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "单选儿童运价并保存",
+          "expected": "左侧运价卡片新增儿童运价记录，Farebasis 为 YCH50+YCH50",
+          "action": "select",
+          "target": "运价条目",
+          "value": "YCH50+YCH50",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "旅客选择切换为【婴儿 LIU/BAOBAO】，点击查询",
+          "expected": "返回婴儿运价列表，运价类别形如 YIN90+YIN90",
+          "action": "select",
+          "target": "旅客选择",
+          "value": "婴儿 LIU/BAOBAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "单选婴儿运价并保存",
+          "expected": "左侧运价卡片新增婴儿运价记录，Farebasis 为 YIN90+YIN90",
+          "action": "select",
+          "target": "运价条目",
+          "value": "YIN90+YIN90",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对三类旅客的 Farebasis",
+          "expected": "成人 Y+Y、儿童 YCH50+YCH50、婴儿 YIN90+YIN90，不存在类型错配",
+          "action": "assert",
+          "target": "旅客类型与运价匹配",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 19,
+      "remark": "",
+      "source_images": [
+        "07_运价-销售运价-儿童旅客 婴儿旅客运价选择.jpg",
+        "08_运价-销售运价-儿童旅客 婴儿旅客运价显示.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31222652245",
+      "tc_name": "20 P1 运价-销售运价-全部旅客运价保存后-运价卡片按类型汇总",
+      "module_name": "01 国内-自动运价",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/06 运价计算组、旅行代码组TC、签注组EI/01 国内-自动运价",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "全部旅客运价保存后的汇总与一致性核对",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【销售运价】",
+          "expected": "打开销售运价 Tab",
+          "action": "click",
+          "target": "运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "依次为成人、儿童、婴儿选择并保存运价",
+          "expected": "每类旅客均提示保存成功",
+          "action": "check",
+          "target": "全部旅客",
+          "value": "勾选",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对左侧运价卡片的汇总展示",
+          "expected": "运价卡片按旅客类型分组展示：Farebasis、票面价、税总、代理费、合计；其他费用区展示 Q/GAITUISHOUFEI 改退收费、FP CASH,CNY、EI 等",
+          "action": "assert",
+          "target": "运价卡片汇总",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对右侧已保存运价与左侧卡片汇总",
+          "expected": "逐条 Farebasis 与金额完全一致，无遗漏或重复",
+          "action": "assert",
+          "target": "左右一致性",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 20,
+      "remark": "",
+      "source_images": [
+        "06_运价-销售运价-全部旅客运价选择保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31266572401",
+      "tc_name": "21 P2 运价-销售运价-未保存运价时-旅客卡片显示无运价",
+      "module_name": "01 国内-自动运价",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/06 运价计算组、旅行代码组TC、签注组EI/01 国内-自动运价",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "无运价时的状态展示与出票拦截",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【销售运价】，查询到运价但不点击保存",
+          "expected": "运价列表展示，未写入订单",
+          "action": "click",
+          "target": "运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "查看左侧旅客与运价卡片",
+          "expected": "旅客显示「未出票」「无运价」，运价卡片无记录",
+          "action": "assert",
+          "target": "旅客卡片状态",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "尝试进入出票流程",
+          "expected": "系统拦截：存在无运价旅客时不允许出票，给出明确提示",
+          "action": "click",
+          "target": "出票",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 21,
+      "remark": "",
+      "source_images": [
+        "07_运价-销售运价-儿童旅客 婴儿旅客运价选择.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31210325545",
+      "tc_name": "22 P2 渠道-编辑联系人-联系人信息为空-校验必填提示",
+      "module_name": "01 编辑联系人",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/03 渠道组、联系组/01 编辑联系人",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "渠道联系人必填校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击左侧「渠道」卡片的【编辑联系人】",
+          "expected": "右侧打开「编辑联系人」Tab",
+          "action": "click",
+          "target": "渠道",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "联系人信息[CTCT] 留空，直接点击【保存 Enter】",
+          "expected": "页面拦截提交，联系人信息给出红色「必填」提示，不写入渠道卡片",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写联系人信息[CTCT] 13512345678 后保存",
+          "expected": "校验通过，渠道卡片写入联系人信息",
+          "action": "input",
+          "target": "联系人信息[CTCT]",
+          "value": "13512345678",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 22,
+      "remark": "",
+      "source_images": [
+        "18_渠道-编辑联系人-编辑联系人.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31288252054",
+      "tc_name": "23 P1 渠道-添加联系人-含CTCT与CTCE-保存后渠道卡片同步",
+      "module_name": "01 编辑联系人",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/03 渠道组、联系组/01 编辑联系人",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "联系人添加与渠道卡片同步",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击【编辑联系人】",
+          "expected": "打开「编辑联系人」Tab，右上角有【添加 CT】【添加 DCT】链接",
+          "action": "click",
+          "target": "渠道",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【添加 CT】",
+          "expected": "新增一组联系人群组",
+          "action": "click",
+          "target": "添加 CT",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "选择航司 CA",
+          "expected": "航司下拉回填 CA",
+          "action": "select",
+          "target": "航司",
+          "value": "CA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "填写联系人信息[CTCT] 13512345678",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "联系人信息[CTCT]",
+          "value": "13512345678",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "填写联系邮箱[OSI CTCE] test@example.com",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "联系邮箱[OSI CTCE]",
+          "value": "test@example.com",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧「渠道」卡片展示 CT 信息、联系人信息、代理姓名、代理电话、代理地址",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "核对右侧录入与左侧渠道卡片展示",
+          "expected": "CTCT 号码与 CTCE 邮箱完全一致，无字段错位",
+          "action": "assert",
+          "target": "左右一致性",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 23,
+      "remark": "",
+      "source_images": [
+        "18_渠道-编辑联系人-编辑联系人.jpg",
+        "19_渠道-添加联系人保存.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31230459004",
+      "tc_name": "24 P2 服务-其他服务-填写SSR指令并保存-服务卡片同步",
+      "module_name": "01 其他服务",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/07 特殊服务组、其他服务组/01 其他服务",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "其他服务 SSR 指令录入",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击左侧「服务」卡片的编辑入口",
+          "expected": "右侧打开「其他服务」Tab",
+          "action": "click",
+          "target": "服务",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "填写【SSR OTHS】CA HKT 12345678",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "SSR OTHS",
+          "value": "CA HKT 12345678",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写【SSR CKIN】CA DEPP HK1 P1",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "SSR CKIN",
+          "value": "CA DEPP HK1 P1",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "填写【SSR CLID】TK HK/TKTTB06200000",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "SSR CLID",
+          "value": "TK HK/TKTTB06200000",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "在【SSR】组合控件中选择或填写内容",
+          "expected": "内容与下拉选项联动正常",
+          "action": "select",
+          "target": "SSR",
+          "value": "自由文本+下拉",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧「服务」卡片新增记录，展示服务类型（ADTK/TKNE）、航空公司、状态（HK）、航段、详细信息（SSR 指令文本）",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "枚举值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 24,
+      "remark": "",
+      "source_images": [
+        "20_服务其他服务.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31220077876",
+      "tc_name": "25 P2 备注-添加备注-填写OSI与RMK-保存后备注卡片同步",
+      "module_name": "01 添加备注",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/08 备注组/01 添加备注",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "OSI/RMK 备注录入与多条管理",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "点击左侧「备注」卡片的【添加备注】",
+          "expected": "右侧打开「添加备注」Tab",
+          "action": "click",
+          "target": "备注",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "填写【OSI】CA TEST（航空公司代码 + 文本）",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "OSI",
+          "value": "CA TEST",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "填写【RMK】TEST REMARK",
+          "expected": "字段回填",
+          "action": "input",
+          "target": "RMK",
+          "value": "TEST REMARK",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击【保存 Enter】",
+          "expected": "提示保存成功；左侧「备注」卡片新增记录，展示类型（OSI/RMK）与内容",
+          "action": "click",
+          "target": "保存 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "再次添加一条备注并检查卡片",
+          "expected": "备注卡片支持多条记录并列展示，每条可单独删除",
+          "action": "assert",
+          "target": "备注多条管理",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 25,
+      "remark": "",
+      "source_images": [
+        "29_备注-添加备注-添加备注.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31283972328",
+      "tc_name": "26 P0 订单-必填项缺失时点击创建订单-前端拦截并定位缺失项",
+      "module_name": "01 创建订单校验",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/09 创建订单/01 创建订单校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "创建订单前的完整性校验（组合类约束）",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "在空白 PNR 编辑页，未录入任何信息",
+          "expected": "左侧各卡片为空，旅客/航班/渠道卡片显示红色「必填」标识",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "直接点击底部【创建订单】",
+          "expected": "系统拦截提交，提示存在未填写的必填项",
+          "action": "click",
+          "target": "创建订单",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对提示内容",
+          "expected": "明确指出缺失项：航段信息、旅客信息、出票时限、联系信息；不生成 PNR",
+          "action": "assert",
+          "target": "缺失项提示",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "仅录入旅客信息，航段与渠道仍为空，再次点击【创建订单】",
+          "expected": "仍被拦截，提示缺失航段与联系信息，不生成 PNR",
+          "action": "input",
+          "target": "旅客",
+          "value": "LIU/BAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "补齐航段后再次点击【创建订单】",
+          "expected": "仍被拦截，提示缺失联系信息，不生成 PNR",
+          "action": "input",
+          "target": "航段",
+          "value": "CA1832 PEK-SHA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 26,
+      "remark": "",
+      "source_images": [
+        "02_散客预定-待生成.jpg",
+        "17_点击创建订单.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31215363462",
+      "tc_name": "27 P0 订单-完整信息点击创建订单-二次确认后生成PNR",
+      "module_name": "02 创建订单成功",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/09 创建订单/02 创建订单成功",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "创建订单主流程与 PNR 生成",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "已完成录入：航段 1 条（CA1832 PEK-SHA 2026-09-10 Y）+ 旅客 1 成人 + 销售运价 1 条 + 渠道联系人 1 组 + 出票时限",
+          "expected": "左侧旅客、航班、运价、渠道卡片均无红色必填标识",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击底部【创建订单】",
+          "expected": "弹出二次确认提示「是否创建订单？」",
+          "action": "click",
+          "target": "创建订单",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击【确认】",
+          "expected": "显示「系统正在为您创建订单...」，随后提示操作成功并返回 6 位 PNR 编码（如 VN2WM7）",
+          "action": "click",
+          "target": "确认",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对左侧摘要卡片",
+          "expected": "展示 PNR 编码、「未出票」状态徽章、「国内」标签、行程概述（航班号+日期+航段）、成人与儿童婴儿数量、出票时限（代理/航空公司两行）、责任组、航空公司 PNR",
+          "action": "assert",
+          "target": "PNR 摘要",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对生成的 PNR 分组",
+          "expected": "包含旅客组、航段组、联系组、出票状态组、责任组；已录的运价计算组、服务组、备注组一并写入",
+          "action": "assert",
+          "target": "PNR 分组完整性",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 27,
+      "remark": "",
+      "source_images": [
+        "17_点击创建订单.jpg",
+        "30_创建订单显示.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31214547018",
+      "tc_name": "28 P2 订单-创建订单二次确认弹窗-点击取消不生成PNR",
+      "module_name": "02 创建订单成功",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/09 创建订单/02 创建订单成功",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "二次确认的取消分支",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "完成全部必填信息录入",
+          "expected": "卡片无必填告警",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击底部【创建订单】",
+          "expected": "弹出二次确认提示「是否创建订单？」",
+          "action": "click",
+          "target": "创建订单",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "点击【取消】",
+          "expected": "弹窗关闭，页面停留在 PNR 编辑态",
+          "action": "click",
+          "target": "取消",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对是否生成 PNR",
+          "expected": "未生成 PNR 编码，已录入数据保持不变，可继续编辑",
+          "action": "assert",
+          "target": "PNR 生成状态",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 28,
+      "remark": "",
+      "source_images": [
+        "17_点击创建订单.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31238153393",
+      "tc_name": "29 P1 订单-创建订单后-左右两侧数据一致性核对",
+      "module_name": "03 数据一致性",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/001 流程 S0501P01W 通过手工输入新建散客预订/09 创建订单/03 数据一致性",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "组合类用例：创建订单后全量一致性核对",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "完成录入并创建订单成功，进入 PNR 详情页",
+          "expected": "摘要卡片展示 PNR 编码与未出票状态",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "核对旅客卡片与录入数据",
+          "expected": "序号、姓名、旅客类型、性别、证件号、出生日期、联系方式、常旅客标识与录入一致",
+          "action": "assert",
+          "target": "旅客卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对航班卡片与录入数据",
+          "expected": "航班号、舱位、日期、出发/到达机场与时间、状态（DK2/HK）与录入一致",
+          "action": "assert",
+          "target": "航班卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对运价卡片与保存数据",
+          "expected": "旅客类型、Farebasis、票面价、税总、代理费、合计与保存结果一致",
+          "action": "assert",
+          "target": "运价卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对服务、渠道卡片",
+          "expected": "SSR 指令文本、CT 信息与录入一致",
+          "action": "assert",
+          "target": "服务与渠道卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "核对备注卡片",
+          "expected": "OSI/RMK 类型与内容与录入一致",
+          "action": "assert",
+          "target": "备注卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 29,
+      "remark": "",
+      "source_images": [
+        "30_创建订单显示.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31250909123",
+      "tc_name": "30 P0 出票-未选择任何旅客点击确认出票-系统拦截",
+      "module_name": "01 出票条件",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/01 出票面板/01 出票条件",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "出票前未选旅客的拦截",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "打开已创建订单的 PNR 详情（如 VN2WM7，未出票）",
+          "expected": "摘要卡片显示「未出票」状态徽章",
+          "action": "navigate",
+          "target": "PNR 详情页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【出票】",
+          "expected": "页面切换为「出 ET」模块布局，右侧显示出票面板",
+          "action": "click",
+          "target": "出票",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "不勾选任何旅客，直接点击【确认出票 Enter】",
+          "expected": "系统拦截，提示请先选择需要出票的旅客，不触发二次确认弹窗",
+          "action": "click",
+          "target": "确认出票 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 30,
+      "remark": "",
+      "source_images": [
+        "01_散客预定-点击出票 跳转到出票页面.jpg",
+        "31_出票-选旅客 客票类型  出票方式 打票机.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31255503016",
+      "tc_name": "31 P0 出票-存在无运价旅客-不允许出票",
+      "module_name": "01 出票条件",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/01 出票面板/01 出票条件",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "无运价旅客的出票拦截",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "打开包含「无运价」旅客的 PNR",
+          "expected": "旅客卡片中该旅客运价状态显示无运价",
+          "action": "navigate",
+          "target": "PNR 详情页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【出票】进入出票面板",
+          "expected": "出票面板展示旅客复选框列表：序号、旅客、票号、运价状态",
+          "action": "click",
+          "target": "出票",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "勾选一名运价状态为「无运价」的旅客",
+          "expected": "该旅客运价状态列显示红色/灰色「无运价」标识",
+          "action": "check",
+          "target": "旅客复选框",
+          "value": "勾选无运价旅客",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击【确认出票 Enter】",
+          "expected": "系统拦截并提示该旅客无运价，需先保存运价后再出票",
+          "action": "click",
+          "target": "确认出票 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "核对有运价旅客的状态展示",
+          "expected": "已保存运价的旅客显示绿色「有运价」标签，可被正常勾选",
+          "action": "assert",
+          "target": "有运价旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "异常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 31,
+      "remark": "",
+      "source_images": [
+        "31_出票-选旅客 客票类型  出票方式 打票机.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31212239729",
+      "tc_name": "32 P1 出票-客票类型与支付方式-枚举选项与FP联动",
+      "module_name": "02 客票类型与支付",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/01 出票面板/02 客票类型与支付",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "客票类型与支付方式枚举及联动",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "进入出票面板，勾选一名有运价旅客",
+          "expected": "旅客呈勾选态，运价状态为有运价",
+          "action": "navigate",
+          "target": "出票面板",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "客票类型选择【本票】",
+          "expected": "单选生效，支付方式与 FP 信息随之刷新",
+          "action": "select",
+          "target": "客票类型",
+          "value": "本票",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "枚举核对支付方式：现金、信用卡、DPAY(BOP)、CPAY(CDS)、政府采购",
+          "expected": "选项与枚举一致；本票场景下可用支付项与客票类型匹配规则一致",
+          "action": "assert",
+          "target": "支付方式选项",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "切换客票类型为【BSP票】",
+          "expected": "支付方式可选项随之调整",
+          "action": "select",
+          "target": "客票类型",
+          "value": "BSP票",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "切换客票类型为【CDS票】",
+          "expected": "支付方式可选项随之调整，CPAY(CDS) 可用",
+          "action": "select",
+          "target": "客票类型",
+          "value": "CDS票",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "选择支付方式【现金】",
+          "expected": "FP 信息区展示 FP CASH,CNY 或 FP IN/CASH,CNY",
+          "action": "select",
+          "target": "支付方式",
+          "value": "现金",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "核对 FP 信息文本",
+          "expected": "FP 文本形如 FP IN/CASH,CNY、FP CASH,CNY/P1/P2，与所选支付方式一致",
+          "action": "assert",
+          "target": "FP 文本格式",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "枚举值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 32,
+      "remark": "",
+      "source_images": [
+        "31_出票-选旅客 客票类型  出票方式 打票机.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31253738381",
+      "tc_name": "33 P0 出票-填写完整后确认出票-二次确认弹窗与出票成功",
+      "module_name": "03 出票执行",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/01 出票面板/03 出票执行",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "出票主流程与二次确认",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "进入出票面板，勾选全部有运价旅客",
+          "expected": "旅客列表勾选完成",
+          "action": "navigate",
+          "target": "出票面板",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "选择客票类型【BSP票】",
+          "expected": "选择生效",
+          "action": "select",
+          "target": "客票类型",
+          "value": "BSP票",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "选择支付方式【现金】",
+          "expected": "FP 信息展示 FP CASH,CNY",
+          "action": "select",
+          "target": "支付方式",
+          "value": "现金",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "选择票池/打票机",
+          "expected": "下拉回填，必填状态解除",
+          "action": "select",
+          "target": "票池/打票机",
+          "value": "默认打票机",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "选择出票航空公司 CA",
+          "expected": "下拉回填，必填状态解除",
+          "action": "select",
+          "target": "出票航空公司",
+          "value": "CA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "选择是否确认出行【是】",
+          "expected": "选项生效",
+          "action": "select",
+          "target": "是否确认出行",
+          "value": "是",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "点击【确认出票 Enter】",
+          "expected": "弹出模态框「是否确认出票？」，提供【确认】与【取消】",
+          "action": "click",
+          "target": "确认出票 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 8,
+          "desc": "点击【确认】",
+          "expected": "系统执行出票并返回成功结果",
+          "action": "click",
+          "target": "确认",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 9,
+          "desc": "核对出票成功后的页面状态",
+          "expected": "摘要卡片状态徽章由「未出票」变为「已出票」（绿色）；旅客卡片状态变为 TKNE/RR；右侧展示已出票旅客列表，票号列显示已出票",
+          "action": "assert",
+          "target": "出票结果",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 33,
+      "remark": "",
+      "source_images": [
+        "32_出票-点击确认出票弹框.jpg",
+        "33_出票-出票成功.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31242662223",
+      "tc_name": "34 P2 出票-确认出票弹窗点击取消-不出票且不改变状态",
+      "module_name": "03 出票执行",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/01 出票面板/03 出票执行",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "出票二次确认的取消分支",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "填写完整出票信息后点击【确认出票 Enter】",
+          "expected": "弹出「是否确认出票？」模态框",
+          "action": "navigate",
+          "target": "出票面板",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【取消】",
+          "expected": "弹窗关闭，停留在出票面板",
+          "action": "click",
+          "target": "取消",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对 PNR 状态",
+          "expected": "摘要卡片仍为「未出票」，旅客卡片状态不变，未生成票号",
+          "action": "assert",
+          "target": "订单状态",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对出票面板已填数据",
+          "expected": "客票类型、支付方式、打票机等填写内容保留，可继续操作",
+          "action": "assert",
+          "target": "表单数据保留",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 34,
+      "remark": "",
+      "source_images": [
+        "32_出票-点击确认出票弹框.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31256770824",
+      "tc_name": "35 P1 出票成功-航段状态变为RR且运价卡片数据完整",
+      "module_name": "01 航段与运价",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/02 出票结果校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "出票后航段与运价的落库校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "出票成功，进入 PNR 详情页",
+          "expected": "摘要显示「已出票」",
+          "action": "navigate",
+          "target": "出票成功页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "核对航段卡片状态",
+          "expected": "航段状态由 HK 变为 RR（已出票），航班号、舱位、日期、起降机场与时间完整不变",
+          "action": "assert",
+          "target": "航班卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对运价卡片",
+          "expected": "按旅客类型展示 Farebasis、票面价、税总、代理费、合计；其他费用区展示 Q/GAITUISHOUFEI 改退收费、FP CASH,CNY、EI 等，与出票前一致",
+          "action": "assert",
+          "target": "运价卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 35,
+      "remark": "",
+      "source_images": [
+        "34_出票-出票成功-航段 运价显示.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31210991648",
+      "tc_name": "36 P2 出票成功-服务渠道备注卡片数据完整保留",
+      "module_name": "02 服务与渠道",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/02 出票结果校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "出票后服务/渠道/备注的数据保留",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "出票成功，进入 PNR 详情页",
+          "expected": "摘要显示「已出票」",
+          "action": "navigate",
+          "target": "出票成功页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "核对服务卡片",
+          "expected": "服务类型（ADTK/TKNE）、航空公司、状态（HK）、航段、详细信息（SSR 指令文本）完整保留",
+          "action": "assert",
+          "target": "服务卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对渠道卡片",
+          "expected": "CT 信息、联系人信息、代理姓名、代理电话、代理地址完整保留",
+          "action": "assert",
+          "target": "渠道卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "核对备注卡片",
+          "expected": "OSI/RMK 类型与内容按条完整保留",
+          "action": "assert",
+          "target": "备注卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 36,
+      "remark": "",
+      "source_images": [
+        "35_出票-出票成功-服务 渠道.jpg",
+        "39_出票-出票成功-备注.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31225552914",
+      "tc_name": "37 P1 出票成功-成人旅客姓名查看更多-展开指令级明细",
+      "module_name": "03 旅客明细展开",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/02 出票结果校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "成人旅客明细展开",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "出票成功，展开旅客列表",
+          "expected": "展示已出票旅客，票号列显示已出票",
+          "action": "navigate",
+          "target": "出票成功页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击成人旅客的【查看更多】",
+          "expected": "展开该旅客的完整票务明细，包含 TKNE、TN、FOID、CTCM 等指令级信息",
+          "action": "click",
+          "target": "成人旅客的查看更多",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对展开内容",
+          "expected": "票号、旅客姓名、证件（FOID NI + 证件号）、联系方式（CTCM）、运价与税项明细齐全，与录入数据一致",
+          "action": "assert",
+          "target": "明细字段",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 37,
+      "remark": "",
+      "source_images": [
+        "36_出票-出票成功-成人姓名查看更多.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31258581823",
+      "tc_name": "38 P1 出票成功-儿童旅客姓名查看更多-展开并核对CHD标识",
+      "module_name": "03 旅客明细展开",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/02 出票结果校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "儿童旅客明细展开与 CHD 校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "出票成功，展开旅客列表",
+          "expected": "展示已出票旅客",
+          "action": "navigate",
+          "target": "出票成功页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击儿童旅客的【查看更多】",
+          "expected": "展开儿童旅客明细，含 CHLD 指令信息",
+          "action": "click",
+          "target": "儿童旅客的查看更多",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对儿童旅客户段",
+          "expected": "旅客姓名带 CHD 后缀，明细含 CHLD + 出生日期，Farebasis 为儿童运价（YCH50+YCH50）",
+          "action": "assert",
+          "target": "CHD 标识",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 38,
+      "remark": "",
+      "source_images": [
+        "40_出票-出票成功-儿童姓名查看更多.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31291041434",
+      "tc_name": "39 P1 出票成功-婴儿旅客姓名查看更多-展开并核对INFT挂靠",
+      "module_name": "03 旅客明细展开",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/02 出票结果校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "婴儿旅客明细展开与 INFT 挂靠校验",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "出票成功，展开旅客列表",
+          "expected": "展示已出票旅客",
+          "action": "navigate",
+          "target": "出票成功页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击婴儿旅客的【查看更多】",
+          "expected": "展开婴儿旅客明细，含 INFT 指令信息",
+          "action": "click",
+          "target": "婴儿旅客的查看更多",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对婴儿旅客明细",
+          "expected": "旅客姓名带 INF 后缀，明细含 INFT + 出生日期 + 持有人（挂靠成人姓名），Farebasis 为婴儿运价（YIN90+YIN90），不占用座位",
+          "action": "assert",
+          "target": "INFT 挂靠",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 39,
+      "remark": "",
+      "source_images": [
+        "37_出票-出票成功-婴儿姓名查看更多.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31211196407",
+      "tc_name": "40 P2 出票成功-点击收起-旅客明细折叠回列表态",
+      "module_name": "03 旅客明细展开",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/002 流程 S0501P20W 散客订单出票/02 出票结果校验",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "旅客明细的展开/收起交互",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "出票成功，已展开某旅客的明细",
+          "expected": "明细区域展示指令级信息",
+          "action": "navigate",
+          "target": "出票成功页",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【收起】",
+          "expected": "该旅客明细折叠，回到旅客列表展示态",
+          "action": "click",
+          "target": "收起",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "核对折叠后的展示",
+          "expected": "仅展示序号、姓名、票号、运价状态等摘要字段，指令级明细不再显示，可重复展开/收起",
+          "action": "assert",
+          "target": "折叠态",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "低",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;",
+      "ordering": 40,
+      "remark": "",
+      "source_images": [
+        "38_出票-出票成功-姓名收起.jpg"
+      ],
+      "tags": [],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31286707448",
+      "tc_name": "41 P0 场景-国内单段1成人1儿童1婴儿-AV选舱+运价+渠道-创建订单并出票",
+      "module_name": "01 国内组合场景",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/003 场景用例/01 国内组合场景",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国内散客预订到出票的端到端主场景",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "进入散客预订新建页面",
+          "expected": "空白 PNR 编辑页，各卡片显示必填标识",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【航班】→【添加航段】，切换到 AV查询[AV]",
+          "expected": "展示查询条件与结果列表",
+          "action": "click",
+          "target": "添加航段",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "输入起飞 PEK、到达 SHA、出发日期 2026-09-10，点击【查询 Enter】",
+          "expected": "返回航班列表",
+          "action": "input",
+          "target": "起飞",
+          "value": "PEK",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "选中 CA1832 的 Y 舱，点击【添加 Enter】",
+          "expected": "航段添加成功并自动占位",
+          "action": "click",
+          "target": "CA1832 Y 舱",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "点击【旅客】→【编辑旅客】，进入【国内】子标签页",
+          "expected": "展示国内旅客表单",
+          "action": "click",
+          "target": "编辑旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "按三种类型依次录入：成人填姓名+公民身份证+证件号+联系方式；儿童填姓名+出生日期；婴儿通过【添加同行婴儿】填姓名+出生日期；点击【保存 Enter】",
+          "expected": "三名旅客依次保存成功，左侧旅客卡片按类型展示",
+          "action": "input",
+          "target": "旅客信息",
+          "value": "成人 LIU/BAO / 儿童 LIU/XIAO / 婴儿（挂靠成人）LIU/BAOBAO",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "核对旅客卡片",
+          "expected": "1 成人 1 儿童 1 婴儿，婴儿嵌套在成人下方，儿童姓名带 CHD 后缀，婴儿带 INF 后缀",
+          "action": "assert",
+          "target": "旅客卡片",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 8,
+          "desc": "点击【运价】→【销售运价】，依次为成人/儿童/婴儿查询并保存运价",
+          "expected": "每类旅客均提示保存成功",
+          "action": "click",
+          "target": "销售运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 9,
+          "desc": "核对三类 Farebasis",
+          "expected": "成人 Y+Y、儿童 YCH50+YCH50、婴儿 YIN90+YIN90，无类型错配",
+          "action": "assert",
+          "target": "运价匹配",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 10,
+          "desc": "点击【渠道】→【编辑联系人】，填写 CTCT 与 CTCE，保存",
+          "expected": "渠道卡片写入联系人信息",
+          "action": "click",
+          "target": "编辑联系人",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 11,
+          "desc": "点击【创建订单】，在二次确认弹窗点击【确认】",
+          "expected": "提示操作成功，返回 PNR 编码，左侧摘要完整展示",
+          "action": "click",
+          "target": "创建订单",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 12,
+          "desc": "点击【出票】进入出票面板，勾选全部旅客",
+          "expected": "出票面板展示旅客列表，均有运价",
+          "action": "click",
+          "target": "出票",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 13,
+          "desc": "选择客票类型 BSP票、支付方式现金、票池/打票机、出票航空公司 CA，点击【确认出票 Enter】并在弹窗点击【确认】",
+          "expected": "出票成功，摘要状态变为「已出票」，旅客状态变为 TKNE/RR，航段状态变为 RR",
+          "action": "select",
+          "target": "出票信息",
+          "value": "BSP票 / 现金 / 打票机 / CA",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 14,
+          "desc": "全链路核对",
+          "expected": "航段、旅客、运价、渠道数据与各步骤录入完全一致；旅客明细可展开查看 TKNE/FOID/CTCM/CHLD/INFT 指令级信息",
+          "action": "assert",
+          "target": "端到端数据一致性",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 41,
+      "remark": "",
+      "source_images": [
+        "15_航班-添加航段-AV查询国内航班-选航班点击舱位 保存.jpg",
+        "26_旅客-编辑旅客-国内-添加2名成人旅客-保存.jpg",
+        "28_旅客-国内-1名成人旅客添加婴儿 保存.jpg",
+        "06_运价-销售运价-全部旅客运价选择保存.jpg",
+        "19_渠道-添加联系人保存.jpg",
+        "30_创建订单显示.jpg",
+        "33_出票-出票成功.jpg"
+      ],
+      "tags": [
+        "端到端",
+        "主流程"
+      ],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31235381863",
+      "tc_name": "42 P1 场景-国际2成人-SS快捷导入+地面段SA-创建订单",
+      "module_name": "02 国际组合场景",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/003 场景用例/02 国际组合场景",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "国际散客预订（含 SS 导入与地面段）端到端场景",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "进入散客预订新建页面",
+          "expected": "空白 PNR 编辑页",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "点击【添加航段】，切换到【添加航段[SS]】子标签页",
+          "expected": "展示快捷导入文本框",
+          "action": "click",
+          "target": "添加航段[SS]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "粘贴 SS CA4542 Y 10SEP26 SHACKG NN2，点击【导入】",
+          "expected": "表单字段自动解析回填",
+          "action": "input",
+          "target": "快捷导入",
+          "value": "SS CA4542 Y 10SEP26 SHACKG NN2",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "点击【添加 Enter】",
+          "expected": "航段添加成功，非 OPEN 段自动占位",
+          "action": "click",
+          "target": "添加 Enter",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "切换到【添加地面段[SA]】，填写 PVG → SHA 与日期，点击【添加 Enter】",
+          "expected": "地面段以 ARNk 形式写入航班卡片，不触发占位",
+          "action": "click",
+          "target": "添加地面段[SA]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "点击【旅客】→【编辑旅客】，切换到【国际 港澳台】子标签页",
+          "expected": "展示国际旅客表单",
+          "action": "click",
+          "target": "国际 港澳台",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 7,
+          "desc": "录入 2 名国际成人：姓名、证件姓名、证件类型（护照 DOCS P）、证件号码、签发国、国籍、有效期、出生日期、性别；点击【保存 Enter】",
+          "expected": "旅客卡片新增 2 条国际成人记录，字段完整",
+          "action": "input",
+          "target": "旅客信息",
+          "value": "SMITH/JOHN / G12345678",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 8,
+          "desc": "为 2 名成人查询并保存销售运价",
+          "expected": "运价卡片按旅客汇总",
+          "action": "click",
+          "target": "销售运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 9,
+          "desc": "填写渠道联系人并保存",
+          "expected": "渠道卡片写入",
+          "action": "click",
+          "target": "编辑联系人",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 10,
+          "desc": "点击【创建订单】并确认",
+          "expected": "生成 PNR 编码，摘要完整",
+          "action": "click",
+          "target": "创建订单",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 11,
+          "desc": "核对 PNR 摘要的国内国际标识",
+          "expected": "摘要显示国际标识，与录入的国际航段/旅客一致",
+          "action": "assert",
+          "target": "国际标识",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "中",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "系统;端到端;",
+      "ordering": 42,
+      "remark": "",
+      "source_images": [
+        "12_航班-添加航段-添加地面段-快捷导入输入.jpg",
+        "14_航班-添加航段-添加地面段-快捷导入-点击导入-保存1.jpg",
+        "10_航班-添加航段-添加地面段SA-保存.jpg",
+        "21_旅客-编辑旅客-国际 港澳台.jpg",
+        "30_创建订单显示.jpg"
+      ],
+      "tags": [
+        "端到端",
+        "国际"
+      ],
+      "automation": "手工"
+    },
+    {
+      "tc_sno": "SGUI-TC-31211914346",
+      "tc_name": "43 P0 冒烟-最小可用路径-1航段1成人1运价1渠道-创建订单成功",
+      "module_name": "03 冒烟",
+      "module_path": "SGUI2.0/S05预订/02 散客预订/003 场景用例/03 冒烟",
+      "precondition": "已登录 SGUI 系统，进入「散客预订-新建」页面（PNR 待生成状态）",
+      "summary": "冒烟测试：核心链路最小可用路径",
+      "steps": [
+        {
+          "seq": 1,
+          "desc": "进入散客预订新建页面",
+          "expected": "空白 PNR 编辑页",
+          "action": "navigate",
+          "target": "散客预订新建页面",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 2,
+          "desc": "通过 SS 快捷导入或 AV 查询添加 1 条航段",
+          "expected": "航段添加成功",
+          "action": "click",
+          "target": "添加航段[SS]",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 3,
+          "desc": "添加 1 名国内成人旅客并保存",
+          "expected": "旅客卡片新增 1 条记录",
+          "action": "click",
+          "target": "编辑旅客",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 4,
+          "desc": "为该旅客查询并保存 1 条销售运价",
+          "expected": "运价卡片新增 1 条记录",
+          "action": "click",
+          "target": "销售运价",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 5,
+          "desc": "填写渠道联系人并保存",
+          "expected": "渠道卡片写入",
+          "action": "click",
+          "target": "编辑联系人",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        },
+        {
+          "seq": 6,
+          "desc": "点击【创建订单】并确认",
+          "expected": "生成 PNR 编码，提示操作成功，系统基本可用",
+          "action": "click",
+          "target": "创建订单",
+          "value": "",
+          "locator": "",
+          "screenshot": "",
+          "timeout": 15
+        }
+      ],
+      "priority": "高",
+      "judge_type": "正常场景",
+      "data_type": "典型值",
+      "objective": "验证新功能",
+      "sub_objective": "冒烟;",
+      "ordering": 43,
+      "remark": "",
+      "source_images": [
+        "02_散客预定-待生成.jpg",
+        "30_创建订单显示.jpg"
+      ],
+      "tags": [
+        "冒烟",
+        "主流程"
+      ],
+      "automation": "手工"
+    }
+  ]
+}
