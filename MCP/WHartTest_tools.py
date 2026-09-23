@@ -23,6 +23,7 @@ import time
 from pydantic import Field
 from pydantic.v1.networks import host_regex
 import os
+from screenshot_paths import resolve_screenshot_path
 
 # mcp 初始化
 mcp = FastMCP(name="WHartTest_tools")
@@ -240,13 +241,17 @@ def get_the_list_of_use_cases(
         + f"/api/projects/{project_id}/testcases/?page=1&page_size=1000&search=&module_id={module_id}"
     )
 
-    data_dict = requests.get(url, headers=headers).json()
-
-    # 用于存储提取出的 id 和 name 的列表
-    extracted_data = []
-
-    for i in data_dict.get("data"):
-        extracted_data.append({"case_id": i.get("id"), "case_name": i.get("name")})
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+    # Both the response wrapper and DRF pagination are used by deployments.
+    while isinstance(data, dict) and "data" in data:
+        data = data["data"]
+    if isinstance(data, dict) and "results" in data:
+        data = data["results"]
+    if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
+        raise ValueError("用例列表返回格式异常，未找到用例数组")
+    extracted_data = [{"case_id": item.get("id"), "case_name": item.get("name")} for item in data]
     return json.dumps(extracted_data, indent=4, ensure_ascii=False)
 
 
@@ -265,11 +270,11 @@ def get_case_details(
     return json.dumps(extracted_data, indent=4, ensure_ascii=False)
 
 
-@mcp.tool(description="WHartTest平台保存操作截图到对应用例中")
+@mcp.tool(description="将浏览器操作截图保存到对应测试用例。传入截图工具返回的相对文件名或共享目录绝对路径；自动转换已配置的 Windows 路径。每个步骤单独上传，失败时不要猜测路径或读取其他文件。")
 def save_operation_screenshots_to_the_application_case(
     project_id: int = Field(description="项目id"),
     case_id: int = Field(description="用例id"),
-    file_path: str = Field(description="文件路径"),
+    file_path: str = Field(description="截图工具返回的图片路径，支持相对文件名与已配置的 Windows 共享目录路径"),
     title: str = Field(description="截图标题"),
     description: str = Field(description="截图描述"),
     step_number: int = Field(description="步骤编号"),
@@ -289,11 +294,7 @@ def save_operation_screenshots_to_the_application_case(
         if not title:
             return "截图标题不能为空"
 
-        # 检查文件是否存在
-        import os
-
-        if not os.path.exists(file_path):
-            return f"文件不存在: {file_path}"
+        file_path = str(resolve_screenshot_path(file_path))
 
         url = (
             base_url
@@ -307,6 +308,7 @@ def save_operation_screenshots_to_the_application_case(
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
             ".gif": "image/gif",
+            ".webp": "image/webp",
         }
         content_type = mime_types.get(file_ext, "image/png")  # 默认为 png
 
@@ -325,21 +327,21 @@ def save_operation_screenshots_to_the_application_case(
                 data["page_url"] = page_url
 
             # 发起请求 - 注意这里不使用json参数，而是用data参数
-            response = requests.post(url, headers=headers, files=files, data=data)
+            response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
 
             # 检查响应状态
             response.raise_for_status()
 
             # 处理响应
             if response.status_code in [200, 201]:
-                return f"截图 '{title}' 上传成功"
+                return json.dumps({"status": "success", "message": f"截图 '{title}' 上传成功", "case_id": case_id, "step_number": step_number, "filename": os.path.basename(file_path), "data": response.json()}, ensure_ascii=False)
             else:
                 return (
                     f"上传失败，状态码: {response.status_code}, 响应: {response.text}"
                 )
 
-    except FileNotFoundError:
-        return f"文件未找到: {file_path}"
+    except (ValueError, FileNotFoundError) as e:
+        return json.dumps({"status": "error", "code": "SCREENSHOT_PATH_ERROR", "message": str(e)}, ensure_ascii=False)
     except requests.exceptions.HTTPError as e:
         return f"HTTP错误: {e}, 响应内容: {response.text if 'response' in locals() else '无响应内容'}"
     except Exception as e:

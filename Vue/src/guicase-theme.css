@@ -1,24 +1,184 @@
-/* SGUI workspace theme. */
-:root:not([data-theme='black']) { --primary-6: 22,119,255; --color-bg-1:#f0f2f5; --color-bg-2:#fff; --color-border-2:#d9e1eb; }
-.main-layout.guicase-layout { height:100dvh; min-height:0; flex:none; background:var(--color-bg-1) !important; }
-.guicase-layout .header { margin:0 !important; border-radius:0 !important; box-shadow:none !important; border-bottom:1px solid var(--color-border-2); height:60px !important; flex-shrink:0; }
-.guicase-layout .sider { margin:0 !important; border-radius:0 !important; background:#0e3f77 !important; box-shadow:none !important; }
-.guicase-layout .sider .arco-layout-sider-children,.guicase-layout .sider .menu,.guicase-layout .sider .arco-menu-inner { background:#0e3f77 !important; }
-.guicase-layout .sider .arco-menu-item,.guicase-layout .sider .arco-menu-inline-header { border-radius:3px !important; color:#d8e6f7 !important; background:transparent !important; margin:3px 8px !important; padding:0 12px !important; min-height:42px; box-shadow:none !important; }
-.guicase-layout .sider .arco-menu-item a,.guicase-layout .sider .arco-menu-icon,.guicase-layout .sider .arco-menu-inline-header .arco-icon { color:inherit !important; }
-.guicase-layout .sider .arco-menu-selected,.guicase-layout .sider .arco-menu-item:hover,.guicase-layout .sider .arco-menu-inline-header:hover { background:#1677ff !important; color:white !important; }
-.guicase-layout .sider .arco-menu-inline-content { background:#0b3566 !important; }
-.guicase-layout .sider-footer { background:#0e3f77 !important; border-color:#315887 !important; }
-.guicase-layout .sider-footer button { color:#d8e6f7 !important; }
-.guicase-layout .content { height:100%; min-height:0; min-width:0; margin:0 !important; padding:18px !important; background:var(--color-bg-1) !important; border-radius:0 !important; box-shadow:none !important; }
-.gc-workbench { text-align:left; }
-.guicase-layout .arco-card { box-shadow:none !important; border:1px solid var(--color-border-2); border-radius:5px; }
-.guicase-layout .arco-table-th { font-size:13px; }
-.guicase-layout .arco-btn { border-radius:4px; box-shadow:none; }
-.guicase-layout .arco-input-wrapper,.guicase-layout .arco-select-view-single,.guicase-layout .arco-textarea-wrapper { border-radius:4px; }
-.guicase-layout .logo { width:215px !important; flex:none; margin-right:8px; font-size:17px; }
-.guicase-layout .logo-icon { width:30px; height:30px; }
-.guicase-layout .menu { padding-bottom:60px !important; }
-/* The header owns its height; page views fill and scroll within the remaining space. */
-.guicase-layout .inner-layout { height:auto; min-height:0; flex:1; }
-@media(max-width:1000px){.guicase-layout .content{padding:10px!important}.guicase-layout .header{padding:0 12px!important}.guicase-layout .version-badge{display:none}}
+/* GuiCase visual system: shared tokens, layout and component presentation. */
+:root {
+  --sgui-canvas:#f4f6fa; --sgui-surface:#fff; --sgui-soft:#f7f9fc; --sgui-line:#e4e9f1;
+  --sgui-text:#1c2c43; --sgui-muted:#68788e; --sgui-blue:#2563d9; --sgui-tint:#edf3ff; --sgui-nav:#142d4e;
+  --sgui-shadow:0 2px 8px #152b4810;
+  --theme-accent:#2563d9; --theme-accent-hover:#3975e8; --theme-accent-active:#1d50b6; --theme-accent-rgb:37,99,217;
+  --theme-bg:var(--sgui-canvas); --theme-page-bg:var(--sgui-canvas); --theme-text:var(--sgui-text);
+  --theme-text-secondary:var(--sgui-muted); --theme-border:var(--sgui-line); --theme-card-shadow:var(--sgui-shadow); --theme-shadow:var(--sgui-shadow);
+  font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+:root[data-theme='black'] {
+  --sgui-canvas:#0f1928; --sgui-surface:#17263b; --sgui-soft:#1c2d43; --sgui-line:#2e4058;
+  --sgui-text:#e5edf8; --sgui-muted:#a6b6cc; --sgui-blue:#85b2ff; --sgui-tint:#233e63; --sgui-nav:#101f34; --sgui-shadow:0 2px 8px #020a181f;
+}
+body {
+  --primary-6:37,99,217; --primary-5:57,117,232; --primary-7:29,80,182;
+  --color-bg-1:var(--sgui-canvas); --color-bg-2:var(--sgui-surface); --color-border-2:var(--sgui-line);
+  --color-text-1:var(--sgui-text); --color-text-2:#46566c; --color-text-3:var(--sgui-muted); --color-fill-1:var(--sgui-soft); --color-primary-light-1:var(--sgui-tint);
+  font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+:root[data-theme='black'] body[arco-theme='dark'] {
+  --color-bg-1:var(--sgui-canvas); --color-bg-2:var(--sgui-surface); --color-border-2:var(--sgui-line); --color-text-1:var(--sgui-text);
+  --color-text-2:#c4d0e2; --color-text-3:var(--sgui-muted); --color-fill-1:var(--sgui-soft); --color-primary-light-1:var(--sgui-tint);
+}
+/* The shell owns the viewport; navigation and page views scroll independently. */
+.main-layout.guicase-layout {height:100dvh;min-height:0;flex:none;background:var(--sgui-canvas)!important}
+.main-layout.guicase-layout .header {height:76px!important;min-height:76px;flex-shrink:0;gap:20px;margin:0!important;padding:0 24px;border-radius:0!important;background:var(--sgui-surface);border-bottom:1px solid var(--sgui-line);box-shadow:none!important;line-height:1.4}
+.main-layout.guicase-layout .left-section {min-width:0;gap:24px}
+.main-layout.guicase-layout .logo {width:auto!important;min-width:258px;margin:0;gap:14px;overflow:visible}
+.main-layout.guicase-layout .logo-icon {width:77px;height:44px;object-fit:contain;border-radius:0;margin:0;flex:none}
+.main-layout.guicase-layout .logo-text {font-size:17px;font-weight:650;color:var(--sgui-text);line-height:1.4}
+.main-layout.guicase-layout .logo-text small {display:block;font-size:9px;letter-spacing:1.8px;font-weight:500;color:var(--sgui-muted);margin-top:4px}
+.main-layout.guicase-layout .project-selector {gap:10px;min-width:0;padding-left:24px;border-left:1px solid var(--sgui-line)}
+.main-layout.guicase-layout .project-select {width:190px}
+.main-layout.guicase-layout .environment-select {width:150px}
+.main-layout.guicase-layout .user-info {gap:12px;margin:0;flex-shrink:0}
+.main-layout.guicase-layout .version-badge {font-size:11px;background:var(--sgui-soft);color:var(--sgui-muted);padding:5px 9px;border:1px solid var(--sgui-line);border-radius:6px}
+.main-layout.guicase-layout .avatar {width:32px;height:32px;font-size:13px;background:var(--sgui-tint);color:var(--sgui-blue);margin:0 0 0 3px}
+.main-layout.guicase-layout .username {color:var(--sgui-text);font-size:13px}
+.main-layout.guicase-layout .user-dropdown {gap:5px}
+.main-layout.guicase-layout .theme-switch-button {border-radius:8px}
+.main-layout.guicase-layout .header-view-switch {margin-left:0}
+.main-layout.guicase-layout .inner-layout {height:auto;min-height:0;flex:1}
+.main-layout.guicase-layout .content {height:100%;min-height:0;min-width:0;margin:0!important;padding:24px!important;background:var(--sgui-canvas)!important;border-radius:0!important;box-shadow:none!important}
+.main-layout.guicase-layout .sider {margin:0!important;border-radius:0!important;background:var(--sgui-nav)!important;box-shadow:none!important}
+.main-layout.guicase-layout .sider .arco-layout-sider-children,.main-layout.guicase-layout .sider .menu,.main-layout.guicase-layout .sider .arco-menu-inner {background:var(--sgui-nav)!important}
+.main-layout.guicase-layout .sider .menu {border-radius:0;padding:14px 0 12px!important;height:calc(100% - 54px);max-height:calc(100% - 54px);scrollbar-width:thin;scrollbar-color:#436080 transparent}
+.main-layout.guicase-layout .sider .arco-menu-inner {padding:0 8px}
+.main-layout.guicase-layout .sider .arco-menu-item,.main-layout.guicase-layout .sider .arco-menu-inline-header {border-radius:7px!important;color:#becde0!important;background:transparent!important;margin:3px 0!important;padding:0 12px!important;min-height:42px;border-left:0!important;box-shadow:none!important;font-size:13px;transition:background-color .16s,color .16s}
+.main-layout.guicase-layout .sider .arco-menu-item a,.main-layout.guicase-layout .sider .arco-menu-icon,.main-layout.guicase-layout .sider .arco-menu-inline-header .arco-icon {color:inherit!important}
+.main-layout.guicase-layout .sider .arco-menu-item:hover,.main-layout.guicase-layout .sider .arco-menu-inline-header:hover {background:#ffffff0d!important;color:#fff!important}
+.main-layout.guicase-layout .sider .arco-menu-selected {background:#2c61ab!important;color:#fff!important;font-weight:600}
+.main-layout.guicase-layout .sider .arco-menu-inline-content {background:#0a1e362e!important;border-radius:7px}
+.main-layout.guicase-layout .sider .arco-menu-inline-content .arco-menu-item {padding-left:28px!important;font-size:12px}
+.main-layout.guicase-layout .sider .arco-menu-collapse .arco-menu-item,.main-layout.guicase-layout .sider .arco-menu-collapse .arco-menu-inline-header {padding:0!important}
+.main-layout.guicase-layout .sider-footer {height:54px;box-sizing:border-box;background:var(--sgui-nav)!important;border-color:#ffffff14!important}
+.main-layout.guicase-layout .sider-footer button {color:#c5d2e3!important;gap:8px;width:100%}
+/* Shared controls, preserving their status, size and disabled behavior. */
+body .arco-btn {border-radius:7px;font-weight:500;transition:background-color .15s,border-color .15s,box-shadow .15s}
+body .arco-btn-size-medium {height:34px}
+body .arco-btn-primary:not(.arco-btn-disabled) {box-shadow:0 2px 3px #1c4c9c16}
+body .arco-btn-secondary:not(.arco-btn-status-danger):not(.arco-btn-status-success):not(.arco-btn-status-warning):not(.arco-btn-disabled) {background:var(--sgui-soft);color:var(--sgui-text);border:1px solid var(--sgui-line)}
+body .arco-btn-secondary:not(:disabled):hover {border-color:#a7bde0;background:var(--sgui-tint)}
+body .arco-btn-primary.arco-btn-status-danger:not(.arco-btn-disabled) {background:rgb(var(--danger-6))!important;border-color:rgb(var(--danger-6))!important}
+body .arco-btn-primary.arco-btn-status-success:not(.arco-btn-disabled) {background:rgb(var(--success-6))!important;border-color:rgb(var(--success-6))!important}
+body .arco-btn-primary.arco-btn-status-warning:not(.arco-btn-disabled) {background:rgb(var(--warning-6))!important;border-color:rgb(var(--warning-6))!important}
+body .arco-input-wrapper,body .arco-textarea-wrapper,body .arco-select-view-single,body .arco-select-view-multiple,body .arco-input-tag {border-radius:7px;border-color:var(--sgui-line);background:var(--sgui-surface)}
+body .arco-form-item-label {color:var(--sgui-text);font-weight:500}
+body .arco-input-wrapper:not(.arco-input-disabled):hover,body .arco-select-view:not(.arco-select-view-disabled):hover {border-color:#9fb7dc}
+body .arco-card {border-radius:12px;border:1px solid var(--sgui-line);box-shadow:var(--sgui-shadow)}
+body .arco-card-header {border-color:var(--sgui-line)}
+body .arco-tabs-nav-tab {color:var(--sgui-muted)}
+body .arco-tabs-tab-active {color:var(--sgui-blue)!important;font-weight:600}
+body .arco-tabs-nav-ink {background-color:var(--sgui-blue);height:3px;border-radius:3px}
+body .arco-table-container {border-color:var(--sgui-line);border-radius:8px}
+body .arco-table-th {background:var(--sgui-soft);color:var(--sgui-muted);font-weight:600;font-size:12px;border-color:var(--sgui-line)}
+body .arco-table-td {border-color:var(--sgui-line);font-size:13px}
+body .arco-table-th,body .arco-table-td {padding:0}
+body .arco-table-th .arco-table-cell,body .arco-table-td .arco-table-cell {padding:10px 14px}
+body .arco-table-size-small .arco-table-cell {padding:8px 12px}
+body .arco-table-size-mini .arco-table-cell {padding:6px 10px}
+body .arco-table-tr:hover .arco-table-td {background:var(--sgui-soft)}
+body .arco-table .arco-link {font-size:13px;line-height:1.65}
+body .arco-pagination-item {border-radius:6px}
+body .arco-pagination-item-active {color:var(--sgui-blue)!important;background:var(--sgui-tint)!important;border-color:transparent!important;font-weight:600}
+body .arco-tag {border-radius:5px;font-weight:500}
+body .arco-alert {border-radius:8px;font-size:12px;line-height:1.8}
+body .arco-collapse {border-color:var(--sgui-line);border-radius:8px}
+body .arco-modal {border-radius:14px;box-shadow:0 20px 65px #061d3a2e}
+body .arco-modal-header,body .arco-drawer-header {border-color:var(--sgui-line)}
+body .arco-modal-title,body .arco-drawer-title {font-weight:650}
+body .arco-modal-footer,body .arco-drawer-footer {background:var(--sgui-soft);border-color:var(--sgui-line)}
+body .arco-drawer {max-width:100vw}
+body .arco-trigger-popup .arco-select-dropdown,body .arco-dropdown {border-radius:8px}
+/* Existing module surfaces retain their own layout and scrolling rules. */
+.main-layout.guicase-layout :is(.overview-card,.chart-card,.module-panel,.testcase-content,.content-section,.project-management,.ui-automation-layout>.layout-content) {border:1px solid var(--sgui-line)!important;border-radius:12px!important;box-shadow:var(--sgui-shadow)!important}
+.main-layout.guicase-layout .overview-card {background:var(--sgui-surface)!important}
+.main-layout.guicase-layout .overview-value {letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.main-layout.guicase-layout .page-header {border-bottom:1px solid var(--sgui-line);padding-bottom:18px}
+.main-layout.guicase-layout .testcase-management-container .arco-table-td .arco-btn-primary:not(.arco-btn-status-danger) {background:var(--sgui-tint)!important;color:var(--sgui-blue)!important;border-color:transparent!important;box-shadow:none}
+.main-layout.guicase-layout .testcase-management-container .arco-table-td .arco-btn-primary:not(.arco-btn-status-danger):hover {background:var(--sgui-blue)!important;color:var(--sgui-surface)!important}
+.main-layout.guicase-layout :is(button,a,input,textarea,[tabindex='0']):focus-visible {outline:2px solid var(--sgui-blue);outline-offset:3px}
+.main-layout.guicase-layout ::-webkit-scrollbar {width:7px;height:7px}
+.main-layout.guicase-layout ::-webkit-scrollbar-thumb {background:#a7b5c580;border-radius:8px}
+.main-layout.guicase-layout ::-webkit-scrollbar-track {background:transparent}
+.sgui-login .platform-brand img {width:77px;height:44px;object-fit:contain}
+.brand-logo:has(.logo-icon) {width:105px!important}
+.brand-logo .logo-icon {width:105px!important;height:60px!important;object-fit:contain;border-radius:0!important}
+.empty-icon:has(.empty-logo) {width:112px!important}
+.empty-logo {width:112px!important;height:64px!important;filter:none!important}
+@media(max-width:1280px) {
+  .main-layout.guicase-layout .header {padding:0 18px;gap:12px}
+  .main-layout.guicase-layout .left-section {gap:16px}
+  .main-layout.guicase-layout .logo {min-width:240px;gap:10px}
+  .main-layout.guicase-layout .logo-text {font-size:15px}
+  .main-layout.guicase-layout .project-selector {padding-left:16px}
+  .main-layout.guicase-layout .version-badge {display:none}
+  .main-layout.guicase-layout .content {padding:18px!important}
+}
+@media(max-width:1050px) {
+  .main-layout.guicase-layout .header {height:auto!important;padding-top:12px;padding-bottom:12px;flex-wrap:wrap}
+  .main-layout.guicase-layout .left-section {flex-wrap:wrap;flex:1}
+  .main-layout.guicase-layout .project-selector {border:0;padding:0}
+  .main-layout.guicase-layout .user-info {gap:8px}
+}
+@media(max-width:600px) {
+  .main-layout.guicase-layout .header {padding:10px 12px;gap:10px;align-items:flex-start}
+  .main-layout.guicase-layout .left-section {display:contents}
+  .main-layout.guicase-layout .logo {min-width:0;gap:8px}
+  .main-layout.guicase-layout .logo-icon {width:63px;height:36px}
+  .main-layout.guicase-layout .logo-text {font-size:13px}
+  .main-layout.guicase-layout .logo-text small {font-size:7px;letter-spacing:1px}
+  .main-layout.guicase-layout .user-info {margin-left:auto;gap:6px;flex-wrap:wrap}
+  .main-layout.guicase-layout .avatar {display:none}
+  .main-layout.guicase-layout .username {max-width:68px;overflow:hidden;text-overflow:ellipsis}
+  .main-layout.guicase-layout .project-selector {order:3;width:100%}
+  .main-layout.guicase-layout .project-select,.main-layout.guicase-layout .environment-select {width:auto;min-width:0;flex:1}
+  .main-layout.guicase-layout .header-view-switch {order:4;width:100%}
+  .main-layout.guicase-layout .content {padding:12px!important}
+  body .arco-modal {max-width:calc(100vw - 24px)}
+}
+@media(prefers-reduced-motion:reduce) {
+  .main-layout.guicase-layout *,.sgui-login * {transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+
+/* Dense case lists keep filters reachable at laptop widths. */
+.main-layout.guicase-layout .testcase-content .page-header {align-items:flex-start;gap:14px}
+.main-layout.guicase-layout .testcase-content .search-box {flex-wrap:wrap;overflow:visible;gap:10px}
+.main-layout.guicase-layout .testcase-content .search-box>* {flex-shrink:0}
+.main-layout.guicase-layout .testcase-content .search-input {min-width:180px}
+.main-layout.guicase-layout .testcase-content .review-status-filter {min-width:170px}
+.main-layout.guicase-layout .testcase-content .level-filter,.main-layout.guicase-layout .testcase-content .test-type-filter {min-width:110px}
+.main-layout.guicase-layout .module-panel-wrapper {width:230px}
+.main-layout.guicase-layout .module-panel .arco-card-header-title {text-align:left;font-size:14px;font-weight:600}
+.main-layout.guicase-layout .tree-container {scrollbar-width:thin;scrollbar-color:#a7b5c580 transparent}
+.main-layout.guicase-layout .tree-container::-webkit-scrollbar {display:block}
+.main-layout.guicase-layout .project-management,.main-layout.guicase-layout .ui-automation-layout>.layout-content {background:var(--sgui-surface)!important}
+@media(max-width:768px) {
+  .main-layout.guicase-layout .module-panel-wrapper {width:100%}
+  .main-layout.guicase-layout .testcase-content .action-buttons {flex-wrap:wrap}
+  .main-layout.guicase-layout .testcase-content .search-input {width:100%}
+}
+
+/* Compact table headings and subdued destructive row actions. */
+body .arco-table-th {white-space:nowrap;padding:0}
+body .arco-table-td .arco-btn-primary.arco-btn-status-danger:not(.arco-btn-disabled) {background:rgb(var(--danger-1))!important;color:rgb(var(--danger-6))!important;border-color:transparent!important;box-shadow:none}
+body .gc-panel .arco-link {color:var(--sgui-blue)!important}
+:root[data-theme='black'] .main-layout.guicase-layout .header {background:var(--sgui-surface)!important;box-shadow:none!important}
+:root[data-theme='black'] .main-layout.guicase-layout .content {background:var(--sgui-canvas)!important}
+:root[data-theme='black'] .main-layout.guicase-layout .sider,
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu,
+:root[data-theme='black'] .main-layout.guicase-layout .sider .arco-menu-inner,
+:root[data-theme='black'] .main-layout.guicase-layout .sider-footer {background:var(--sgui-nav)!important;box-shadow:none!important}
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu .arco-menu-item,
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu .arco-menu-inline-header {background:transparent!important;color:#becde0!important;border:0!important;box-shadow:none!important}
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu .arco-menu-selected {background:#284f82!important;color:#fff!important}
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu .arco-menu-item:hover,
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu .arco-menu-inline-header:hover {background:#ffffff0d!important;color:#fff!important}
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu a,
+:root[data-theme='black'] .main-layout.guicase-layout .sider .menu .arco-icon {color:inherit!important}
+/* Collapsed submenu launchers share the navigation surface. */
+.main-layout.guicase-layout .sider .arco-menu-pop-header {background:transparent!important;color:#becde0!important;border:0!important;border-radius:7px;min-height:42px;padding:0!important;box-shadow:none!important}
+.main-layout.guicase-layout .sider .arco-menu-pop-header:hover {background:#ffffff0d!important;color:#fff!important}
+.main-layout.guicase-layout .sider .arco-menu-pop-header.arco-menu-selected {background:#2c61ab!important;color:#fff!important}

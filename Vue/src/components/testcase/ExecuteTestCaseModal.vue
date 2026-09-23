@@ -22,6 +22,10 @@
 
       <a-divider orientation="left">执行选项</a-divider>
 
+      <a-alert style="margin-bottom: 16px" type="info">
+        执行进度在「LLM 对话」中查看。浏览器工具使用本机可见模式时，将打开独立浏览器窗口展示 AI 操作；每步截图保存在用例详情中。执行期间请勿操作测试窗口。
+      </a-alert>
+
       <a-form :model="formData" layout="vertical">
         <a-form-item>
           <a-checkbox v-model="formData.generatePlaywrightScript">

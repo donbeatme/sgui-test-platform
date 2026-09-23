@@ -101,6 +101,7 @@ docs/competitive-analysis/
 /Actuator/config.toml
 /local/memory-optimization/
 /local/*-process.json
+/local/playwright-mcp*.local.json
 /local/*credentials*
 /local/actuator-custom.toml
 **/test-results/

@@ -66,6 +66,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # 复制MCP服务代码（仅复制必要文件）
 COPY ms_mcp_api.py /app/
 COPY WHartTest_tools.py /app/
+COPY screenshot_paths.py /app/
 COPY playwright-mcp-config.json /app/
 
 # 创建日志目录

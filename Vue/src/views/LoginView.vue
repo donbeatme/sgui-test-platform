@@ -2,7 +2,7 @@
   <div class="sgui-login" :class="{ 'is-dark': themeStore.isBlack }">
     <header class="login-topbar">
       <a class="platform-brand" href="/login" aria-label="SGUI自动化测试登录页">
-        <img :src="platformIcon" alt="" width="38" height="38" />
+        <img :src="platformIcon" alt="中国航信 TravelSky" width="77" height="44" />
         <span>{{ platformName }}<small>QUALITY WORKSPACE</small></span>
       </a>
       <div class="login-controls">
@@ -156,17 +156,17 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.sgui-login { --login-bg:#f3f6fb; --login-surface:#fff; --login-text:#172b46; --login-muted:#65768b; --login-border:#dce4ee; --login-input:#f8fafd; min-height:100dvh; box-sizing:border-box; display:flex; flex-direction:column; padding:0 clamp(20px,4.4vw,76px); background:var(--login-bg); color:var(--login-text); text-align:left; font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif; }
+.sgui-login { --login-bg:#f4f6fa; --login-surface:#fff; --login-text:#1c2c43; --login-muted:#65768b; --login-border:#dce4ee; --login-input:#f8fafd; min-height:100dvh; box-sizing:border-box; display:flex; flex-direction:column; padding:0 clamp(20px,4.4vw,76px); background:var(--login-bg); color:var(--login-text); text-align:left; font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif; }
 .sgui-login.is-dark { --login-bg:#0c1523; --login-surface:#142136; --login-text:#e9f0fb; --login-muted:#a6b7cd; --login-border:#33465e; --login-input:#101c2e; }
 .sgui-login * { box-sizing:border-box; }
 .login-topbar { min-height:100px; display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; max-width:1360px; margin:auto; }
 .platform-brand { display:flex; align-items:center; gap:12px; color:var(--login-text); text-decoration:none; font-size:19px; font-weight:750; line-height:1.35; }
-.platform-brand img { flex:none; }
+.platform-brand img { flex:none; object-fit:contain; }
 .platform-brand small { display:block; margin-top:3px; color:var(--login-muted); font-size:9px; letter-spacing:2px; font-weight:500; }
 .login-controls { display:flex; align-items:center; gap:16px; }
 .theme-button { display:grid; place-items:center; width:34px; height:34px; border:1px solid var(--login-border); border-radius:8px; background:var(--login-surface); color:var(--login-muted); cursor:pointer; }
-.login-main { display:grid; grid-template-columns:1.08fr 1fr; width:100%; max-width:1360px; margin:auto; min-height:650px; flex:1; border:1px solid var(--login-border); border-radius:18px; overflow:hidden; background:var(--login-surface); box-shadow:0 18px 55px #112f5710; }
-.login-story { position:relative; display:flex; background:#102f54; color:#f4f8ff; overflow:hidden; }
+.login-main { display:grid; grid-template-columns:1.08fr 1fr; width:100%; max-width:1360px; margin:auto; min-height:650px; flex:1; border:1px solid var(--login-border); border-radius:16px; overflow:hidden; background:var(--login-surface); box-shadow:0 12px 40px #112f570c; }
+.login-story { position:relative; display:flex; background:#142d4e; color:#f4f8ff; overflow:hidden; }
 .story-grid { position:absolute; inset:0; opacity:.18; background-image:linear-gradient(#84a3c329 1px,transparent 1px),linear-gradient(90deg,#84a3c329 1px,transparent 1px); background-size:44px 44px; mask-image:linear-gradient(140deg,transparent 20%,#000); pointer-events:none; }
 .story-content { position:relative; z-index:1; display:flex; flex-direction:column; width:100%; padding:clamp(36px,4vw,64px); }
 .story-eyebrow { display:flex; align-items:center; gap:9px; font-size:11px; letter-spacing:2px; color:#a9cbed; }
@@ -222,6 +222,6 @@ onMounted(() => {
 @keyframes sgui-spin { to { transform:rotate(360deg); } }
 @media(min-width:1500px) { .login-main { flex:0 1 auto; min-height:720px; } }
 @media(max-width:1000px) { .login-topbar { min-height:84px; }.login-main { min-height:610px; }.story-content { padding:32px; }.login-panel { padding:34px; }.story-content h1 { font-size:32px; }.workflow-list p { font-size:10px; }.step-number { display:none; } }
-@media(max-width:760px) { .sgui-login { padding:0 20px; }.login-topbar { min-height:85px; }.platform-brand { font-size:17px; gap:9px; }.platform-brand img { width:32px; height:32px; }.platform-brand small { font-size:8px; }.login-controls { gap:9px; }.login-main { display:block; flex:none; min-height:0; max-width:500px; border-radius:13px; }.login-story { display:none; }.login-panel { padding:40px 28px; }.login-card { max-width:370px; }.login-card h2 { font-size:29px; }.login-footer { flex-direction:column; align-items:center; gap:8px; margin-top:auto; padding:23px 0; text-align:center; } }
+@media(max-width:760px) { .sgui-login { padding:0 20px; }.login-topbar { min-height:85px; flex-wrap:wrap; gap:12px; padding:16px 0; }.platform-brand { font-size:17px; gap:9px; }.platform-brand img { width:63px; height:36px; }.platform-brand small { font-size:8px; }.login-controls { gap:9px; }.login-main { display:block; flex:none; min-height:0; max-width:500px; border-radius:13px; }.login-story { display:none; }.login-panel { padding:40px 28px; }.login-card { max-width:370px; }.login-card h2 { font-size:29px; }.login-footer { flex-direction:column; align-items:center; gap:8px; margin-top:auto; padding:23px 0; text-align:center; } }
 @media(prefers-reduced-motion:reduce) { .sgui-login * { animation:none!important; transition:none!important; } }
 </style>

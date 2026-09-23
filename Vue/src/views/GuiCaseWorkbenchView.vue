@@ -2,12 +2,13 @@
   <div class="gc-workbench" role="region" aria-label="图文用例工作台内容" tabindex="0">
     <div class="gc-heading">
       <div><div class="gc-eyebrow">SGUI · 用例工程</div><h1>图文用例工作台</h1><p>整理需求与界面，生成可评审、可追溯的测试用例。</p></div>
-      <a-space><a-button @click="tab = 'history'">生成记录</a-button><a-button @click="startNew">新建任务</a-button><a-button type="primary" @click="router.push('/testcases')">用例管理 <icon-arrow-right /></a-button></a-space>
+      <a-space wrap><a-button @click="tab = 'history'">生成记录</a-button><a-button @click="startNew">新建任务</a-button><a-button type="primary" @click="router.push('/testcases')">用例管理 <icon-arrow-right /></a-button></a-space>
     </div>
     <a-alert v-if="!projectId" type="info">请先在顶部选择项目，或到项目管理中创建项目。<a-button type="text" @click="router.push('/projects')">项目管理</a-button></a-alert>
     <a-alert v-if="error" type="error" closable @close="error = ''" class="gc-error">{{ error }}</a-alert>
     <div v-if="projectId" class="gc-grid">
       <aside class="gc-guide">
+        <div class="gc-guide-caption">当前项目</div>
         <div class="gc-guide-title">{{ projectStore.currentProject?.name }}</div>
         <button v-for="(item, i) in journey" :key="item.title" class="gc-journey" :class="{active: tab === item.tab}" @click="tab = item.tab"><span>{{ i + 1 }}</span><div><strong>{{ item.title }}</strong><small>{{ item.desc }}</small></div></button>
         <div class="gc-guide-divider"></div>
@@ -24,9 +25,7 @@
           <a-tab-pane key="input" title="需求与图片">
             <div class="gc-pane">
               <a-form layout="vertical">
-                <a-alert class="gc-space-bottom">上传需求文档即可开始，图片可选。任务名称与需求说明均可留空；AI 会根据材料归纳任务名称。</a-alert>
-                <a-form-item label="任务名称（可选）"><a-input v-model="title" :disabled="busy" placeholder="留空，由 AI 根据需求材料自动命名" :max-length="200" /></a-form-item>
-                <a-form-item label="需求说明（可选）"><a-textarea v-model="requirement" :disabled="busy" placeholder="已有需求文档时可留空；也可补充测试范围、重点或限制。没有文档时，可直接在这里输入需求。" :auto-size="{minRows: 4, maxRows: 12}" :max-length="limits.text_chars" show-word-limit /></a-form-item>
+                <div class="gc-section-heading"><span>01</span><div><h2>准备需求材料</h2><p>上传文档，或输入需求说明。添加界面截图，让用例覆盖更多交互细节。</p></div></div>
                 <div class="gc-two-col">
                   <div class="gc-upload" :class="{'gc-drop-active': dragging === 'docs'}" @dragover.prevent="dragging = 'docs'" @dragleave.prevent="dragging = ''" @drop.prevent="dropFiles($event, 'docs')">
                     <strong><icon-file /> 需求文档</strong><p>TXT / MD / PDF / DOCX · 最多 {{ limits.documents }} 份（含已有文档）· 单份 ≤ {{ limits.document_bytes / MB }} MB</p>
@@ -47,6 +46,10 @@
                 <a-form-item label="引用已有需求文档（可选）"><a-select v-model="documentIds" multiple allow-clear :disabled="busy" placeholder="可多选，点击标签 × 移除；来自当前项目的需求管理" :options="documentOptions" /></a-form-item>
                 <p class="gc-material-summary" aria-live="polite">已选 {{ docs.length + documentIds.length }}/{{ limits.documents }} 份文档、{{ images.length }}/{{ limits.images }} 张图片 · 待上传 {{ formatSize(uploadBytes) }}/{{ limits.upload_bytes / MB }} MB。合并文字上限 {{ (limits.context_chars / 10000).toLocaleString() }} 万字符；按标题、表格与完整用例组织材料，由 AI 规划模块后逐模块生成。过长单元会保留接续上下文，原文保留供评审。</p>
                 <a-checkbox v-model="includeDocumentImages">同时分析所选 DOCX 文档的内嵌图片（与上传截图合计最多 {{ limits.images }} 张）</a-checkbox>
+                <div class="gc-section-heading gc-section-divider"><span>02</span><div><h2>补充任务信息 <small>可选</small></h2><p>已有需求文档时可以留空，AI 会根据材料归纳任务名称。</p></div></div>
+                <a-form-item label="任务名称（可选）"><a-input v-model="title" :disabled="busy" placeholder="留空，由 AI 根据需求材料自动命名" :max-length="200" /></a-form-item>
+                <a-form-item label="需求说明（可选）"><a-textarea v-model="requirement" :disabled="busy" placeholder="已有需求文档时可留空；也可补充测试范围、重点或限制。没有文档时，可直接在这里输入需求。" :auto-size="{minRows: 4, maxRows: 12}" :max-length="limits.text_chars" show-word-limit /></a-form-item>
+                <div class="gc-section-heading gc-section-divider"><span>03</span><div><h2>选择生成设置</h2><p>为文字与图片选择对应模型，也可以沿用当前配置。</p></div></div>
                 <div class="gc-two-col gc-space-top">
                   <a-form-item label="文字生成模型"><a-select v-model="textModelId" allow-clear placeholder="沿用阶段设置 / 当前激活模型" :options="modelOptions" /></a-form-item>
                   <a-form-item label="图片解析模型"><a-select v-model="visionModelId" allow-clear placeholder="选择支持图片输入的模型" :options="visionModelOptions" /></a-form-item>
@@ -88,7 +91,7 @@
           </a-tab-pane>
           <a-tab-pane key="history" title="生成记录与导入">
             <div class="gc-pane"><div class="gc-import-row"><div><h2>继续工作或导入用例</h2><p>保留源编号、模块层级、测试分类、动作信息及截图引用。导入后先预览，再确认入库。</p></div><a-space><a-button :loading="busy" @click="loadPreset">载入 43 条预置用例</a-button><label class="gc-file-button">导入 JSON<input aria-label="导入用例 JSON" type="file" accept=".json,application/json" @change="importJson" /></label></a-space></div>
-              <a-table :data="jobs" row-key="id" :pagination="{pageSize:10}"><template #columns><a-table-column title="任务名称" data-index="title"><template #cell="{record}"><a-link @click="openJob(record.id)">{{ record.title }}</a-link></template></a-table-column><a-table-column title="状态"><template #cell="{record}"><a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag></template></a-table-column><a-table-column title="用例数" data-index="count" /><a-table-column title="创建时间"><template #cell="{record}">{{ new Date(record.created_at).toLocaleString() }}</template></a-table-column></template></a-table>
+              <a-table :data="jobs" row-key="id" :pagination="{pageSize:10,showTotal:true}" :scroll="{x:720}"><template #columns><a-table-column title="任务名称" data-index="title"><template #cell="{record}"><a-link @click="openJob(record.id)">{{ record.title }}</a-link></template></a-table-column><a-table-column title="状态" :width="100"><template #cell="{record}"><a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag></template></a-table-column><a-table-column title="用例数" data-index="count" :width="80" /><a-table-column title="创建时间" :width="180"><template #cell="{record}">{{ new Date(record.created_at).toLocaleString() }}</template></a-table-column></template></a-table>
             </div>
           </a-tab-pane>
           <a-tab-pane key="settings" title="模型、规则与提示词">
@@ -234,32 +237,84 @@ onUnmounted(()=>{disposed=true;clearTimeout(poll);imagePreviews.value.forEach(p=
 </script>
 
 <style scoped>
-.gc-workbench {
-  height: 100%;
-  min-height: 0;
-  box-sizing: border-box;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-.gc-workbench:focus-visible {
-  outline: 2px solid var(--color-primary-6, #1677ff);
-  outline-offset: -2px;
-}
-.gc-hidden-picker { display: none; }
-.gc-upload-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.gc-upload-tools :deep(button:not(:disabled)) { cursor: pointer; }
-.gc-upload.gc-drop-active { border-color: #1677ff; background: var(--color-primary-light-1); }
-.gc-file-list { list-style: none; padding: 0; margin: 14px 0 0; }
-.gc-file-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-top: 1px solid var(--color-border-2); }
-.gc-file-list li > div { min-width: 0; overflow-wrap: anywhere; }
-.gc-file-list small { display: block; color: var(--color-text-3); margin-top: 4px; }
-.gc-file-list :deep(button) { flex-shrink: 0; }
-.gc-material-summary { color: var(--color-text-3); font-size: 12px; line-height: 1.8; margin: 0 0 16px; }
-.gc-images { max-height: 360px; overflow-y: auto; scrollbar-gutter: stable; }
-.gc-module-progress { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--color-border-2); overflow-wrap: anywhere; }
-.gc-module-progress > div { min-width: 0; flex: 1; }
-.gc-module-progress > :last-child { flex-shrink: 0; }
-.gc-module-progress p { font-size: 12px; color: var(--color-text-3); margin: 6px 0; }
-.gc-workbench{max-width:1680px;margin:0 auto;color:var(--color-text-1)}.gc-heading{display:flex;justify-content:space-between;gap:20px;align-items:center;margin:5px 0 22px}.gc-eyebrow{color:#6b7d96;font-size:12px;letter-spacing:1px}.gc-heading h1{font-size:24px;line-height:1.5;margin:5px 0;font-weight:650}.gc-heading p,.gc-result-heading p,.gc-import-row p{margin:4px 0;color:var(--color-text-3);font-size:13px}.gc-grid{display:grid;grid-template-columns:226px minmax(0,1fr);gap:16px;align-items:start}.gc-guide,.gc-panel{border:1px solid var(--color-border-2);border-radius:5px;background:var(--color-bg-2)}.gc-guide{padding:18px 12px}.gc-guide-title{font-weight:650;padding:0 10px 14px;border-bottom:1px solid var(--color-border-2);margin-bottom:14px;word-break:break-all}.gc-journey{display:flex;gap:11px;align-items:center;border:0;background:transparent;width:100%;text-align:left;padding:14px 8px;color:var(--color-text-2);cursor:pointer;border-radius:4px}.gc-journey>span{border:1px solid #ccd8e7;width:27px;height:27px;border-radius:50%;display:grid;place-items:center;font-size:12px;flex:none}.gc-journey strong{font-size:13px}.gc-journey small{display:block;color:#8896aa;font-size:11px;margin-top:5px}.gc-journey.active{background:#eef5ff;color:#1668d6}.gc-journey.active>span{background:#1677ff;color:#fff;border-color:#1677ff}.gc-guide-divider{height:1px;background:var(--color-border-2);margin:18px 8px}.gc-guide-caption{font-size:11px;color:#8190a4;padding:0 10px 10px}.gc-guide>a{display:flex;gap:9px;align-items:center;color:var(--color-text-2);font-size:12px;padding:11px 10px;text-decoration:none}.gc-guide>a:hover{color:#1677ff;background:#eef5ff}.gc-guide-tip{font-size:11px;line-height:1.8;color:#8a98aa;padding:18px 10px 2px}.gc-panel{min-width:0}.gc-panel :deep(.arco-tabs-nav){padding:0 20px}.gc-pane{padding:8px 24px 24px}.gc-two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.gc-upload{background:var(--color-fill-1);border:1px dashed #b8c9e0;border-radius:4px;padding:18px;margin-bottom:20px;min-width:0}.gc-upload strong{font-size:13px}.gc-upload p{color:#8391a5;font-size:12px}.gc-upload input{max-width:100%;font-size:12px}.gc-file{padding-top:8px;color:#58708f;font-size:12px;overflow-wrap:anywhere}.gc-images{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.gc-images>div{width:100px}.gc-images img{width:100px;height:68px;object-fit:cover;border:1px solid #dae4ef;border-radius:3px}.gc-images small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gc-actions{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--color-border-2);padding-top:20px;gap:12px}.gc-actions>span{font-size:12px;color:#8291a6}.gc-space-top{margin-top:20px}.gc-space-bottom{margin-bottom:16px}.gc-error{margin-bottom:16px}.gc-result-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.gc-pane h2{font-size:17px;margin:2px 0 8px}.gc-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.gc-metrics>div{background:var(--color-fill-1);border:1px solid var(--color-border-2);border-radius:4px;padding:15px 18px;display:flex;align-items:baseline;gap:9px}.gc-metrics b{font-size:25px;color:#216fd1}.gc-metrics span{font-size:12px;color:#7a8ba2}.gc-result-tools,.gc-import-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0;flex-wrap:wrap}.gc-subtext{display:block;color:#8c9bae;font-size:10px;margin-top:5px}.gc-note{font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;color:var(--color-text-2);font-size:13px}.gc-issue{padding:10px 0;border-bottom:1px solid var(--color-border-2);font-size:12px}.gc-issue>div{margin-top:8px}.gc-next{background:var(--color-fill-1);padding:18px;border:1px solid var(--color-border-2);margin-top:20px;font-size:13px;line-height:1.8}.gc-file-button{background:#1677ff;color:white;padding:7px 13px;border-radius:4px;cursor:pointer;font-size:14px}.gc-file-button input{display:none}.gc-step{border:1px solid var(--color-border-2);padding:16px;margin-bottom:16px;border-radius:4px}.gc-step-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}@media(max-width:1150px){.gc-grid{grid-template-columns:1fr}.gc-guide{display:none}.gc-heading{align-items:flex-start}.gc-metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.gc-two-col{grid-template-columns:1fr}.gc-heading{flex-direction:column}.gc-pane{padding:8px 14px 18px}.gc-actions{align-items:flex-start;flex-direction:column}}
+
+.gc-workbench {height:100%;min-height:0;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;max-width:1760px;margin:0 auto;color:var(--sgui-text);text-align:left;padding:0 4px 12px 0}
+.gc-workbench:focus-visible {outline:2px solid var(--sgui-blue);outline-offset:-2px}
+.gc-heading {display:flex;justify-content:space-between;gap:20px;align-items:center;margin:2px 0 24px}
+.gc-eyebrow {color:var(--sgui-muted);font-size:11px;letter-spacing:1.5px;font-weight:500}
+.gc-heading h1 {font-size:26px;line-height:1.5;margin:6px 0;font-weight:650;letter-spacing:-.5px}
+.gc-heading p,.gc-result-heading p,.gc-import-row p {margin:5px 0 0;color:var(--sgui-muted);font-size:13px;line-height:1.8}
+.gc-grid {display:grid;grid-template-columns:198px minmax(0,1fr);gap:20px;align-items:start}
+.gc-guide,.gc-panel {border:1px solid var(--sgui-line);border-radius:12px;background:var(--sgui-surface);box-shadow:var(--sgui-shadow)}
+.gc-guide {padding:20px 10px}
+.gc-guide-title {font-weight:650;font-size:14px;padding:0 10px 18px;border-bottom:1px solid var(--sgui-line);margin-bottom:14px;overflow-wrap:anywhere}
+.gc-journey {display:flex;gap:10px;align-items:center;border:0;background:transparent;width:100%;text-align:left;padding:14px 10px;color:var(--sgui-muted);cursor:pointer;border-radius:8px;margin:4px 0;transition:background .15s}
+.gc-journey>span {border:1px solid var(--sgui-line);width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none;background:var(--sgui-soft)}
+.gc-journey strong {font-size:13px;font-weight:600}
+.gc-journey small {display:block;color:var(--sgui-muted);font-size:11px;margin-top:5px;line-height:1.6}
+.gc-journey:hover,.gc-journey.active {background:var(--sgui-tint);color:var(--sgui-blue)}
+.gc-journey.active>span {background:var(--theme-accent);color:#fff;border-color:var(--theme-accent)}
+.gc-guide-divider {height:1px;background:var(--sgui-line);margin:18px 10px}
+.gc-guide-caption {font-size:10px;letter-spacing:1px;color:var(--sgui-muted);padding:0 10px 10px}
+.gc-guide>a {display:flex;gap:9px;align-items:center;color:var(--sgui-muted);font-size:12px;padding:11px 10px;text-decoration:none;border-radius:6px}
+.gc-guide>a:hover {color:var(--sgui-blue);background:var(--sgui-tint)}
+.gc-guide-tip {font-size:11px;line-height:1.9;color:var(--sgui-muted);padding:18px 10px 0}
+.gc-panel {min-width:0;overflow:hidden}
+.gc-panel :deep(.arco-tabs-nav) {padding:0 24px;background:var(--sgui-surface)}
+.gc-panel :deep(.arco-tabs-tab) {padding:18px 0;font-size:13px}
+.gc-panel :deep(.arco-tabs-content) {padding-top:0}
+.gc-pane {padding:24px 28px 28px}
+.gc-pane h2 {font-size:17px;font-weight:650;margin:2px 0 8px;line-height:1.5}
+.gc-section-heading {display:flex;gap:12px;align-items:flex-start;margin:0 0 20px}
+.gc-section-heading>span {font-size:11px;color:var(--sgui-blue);background:var(--sgui-tint);width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;font-weight:650}
+.gc-section-heading h2 {font-size:15px;margin:2px 0 5px}
+.gc-section-heading h2 small {font-size:11px;color:var(--sgui-muted);font-weight:400;margin-left:6px}
+.gc-section-heading p {font-size:12px;color:var(--sgui-muted);line-height:1.8;margin:0}
+.gc-section-divider {border-top:1px solid var(--sgui-line);padding-top:24px;margin-top:26px}
+.gc-two-col {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.gc-upload {background:var(--sgui-soft);border:1px dashed #b5c7df;border-radius:10px;padding:22px 20px;margin-bottom:22px;min-width:0;transition:background .15s,border-color .15s}
+.gc-upload:hover,.gc-upload.gc-drop-active {border-color:var(--sgui-blue);background:var(--sgui-tint)}
+.gc-upload>strong {font-size:14px;display:flex;align-items:center;gap:8px;color:var(--sgui-text)}
+.gc-upload>strong>.arco-icon {font-size:20px;color:var(--sgui-blue)}
+.gc-upload p {color:var(--sgui-muted);font-size:11px;line-height:1.85;margin:12px 0}
+.gc-hidden-picker {display:none}
+.gc-upload-tools {display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.gc-upload-tools :deep(button:not(:disabled)) {cursor:pointer}
+.gc-file-list {list-style:none;padding:0;margin:14px 0 0}
+.gc-file-list li {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--sgui-line)}
+.gc-file-list li>div {min-width:0;overflow-wrap:anywhere}
+.gc-file-list strong {font-size:12px}
+.gc-file-list small {display:block;color:var(--sgui-muted);margin-top:4px;font-size:11px}
+.gc-file-list :deep(button) {flex-shrink:0}
+.gc-material-summary {color:var(--sgui-muted);font-size:11px;line-height:1.9;margin:0 0 16px;background:var(--sgui-soft);padding:12px 14px;border-radius:8px}
+.gc-images {display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;max-height:360px;overflow-y:auto;scrollbar-gutter:stable}
+.gc-images>div {width:100px;background:var(--sgui-surface);border:1px solid var(--sgui-line);border-radius:7px;padding:4px}
+.gc-images img {width:90px;height:64px;object-fit:cover;border-radius:4px}
+.gc-images small {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;padding-top:4px}
+.gc-actions {display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--sgui-line);padding:20px 0 0;gap:12px;margin-top:12px;background:var(--sgui-surface)}
+.gc-actions>span {font-size:12px;color:var(--sgui-muted);line-height:1.8;max-width:55%}
+.gc-space-top {margin-top:20px}.gc-space-bottom,.gc-error {margin-bottom:16px}
+.gc-result-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+.gc-result-heading>div {min-width:0;overflow-wrap:anywhere}
+.gc-metrics {display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}
+.gc-metrics>div {background:var(--sgui-soft);border:1px solid var(--sgui-line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:6px}
+.gc-metrics b {font-size:28px;line-height:1.2;font-weight:600;color:var(--sgui-blue);font-variant-numeric:tabular-nums}
+.gc-metrics span {font-size:11px;color:var(--sgui-muted)}
+.gc-result-tools,.gc-import-row {display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 22px;flex-wrap:wrap}
+.gc-result-tools :deep(.arco-space),.gc-import-row :deep(.arco-space) {flex-wrap:wrap}
+.gc-subtext {display:block;color:var(--sgui-muted);font-size:10px;margin-top:5px}
+.gc-note {font-family:inherit;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;color:var(--sgui-muted);font-size:12px}
+.gc-issue {padding:12px 0;border-bottom:1px solid var(--sgui-line);font-size:12px}.gc-issue>div {margin-top:8px}
+.gc-next {background:var(--sgui-soft);padding:20px;border:1px solid var(--sgui-line);border-radius:10px;margin-top:20px;font-size:13px;line-height:1.8}
+.gc-file-button {position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:34px;background:var(--theme-accent);color:#fff;padding:0 14px;border-radius:7px;cursor:pointer;font-size:13px;overflow:hidden}
+.gc-file-button:hover {background:var(--theme-accent-hover)}
+.gc-file-button:focus-within {outline:2px solid var(--sgui-blue);outline-offset:3px}
+.gc-file-button input {position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.gc-step {border:1px solid var(--sgui-line);padding:16px;margin-bottom:16px;border-radius:8px}
+.gc-step-title {display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.gc-module-progress {display:flex;justify-content:space-between;align-items:start;gap:12px;padding:14px 0;border-bottom:1px solid var(--sgui-line);overflow-wrap:anywhere}
+.gc-module-progress>div {min-width:0;flex:1}.gc-module-progress>:last-child {flex-shrink:0}
+.gc-module-progress p {font-size:12px;color:var(--sgui-muted);margin:6px 0;line-height:1.8}
+@media(max-width:1250px) {.gc-grid{grid-template-columns:1fr}.gc-guide{display:none}.gc-heading{align-items:flex-start}.gc-pane{padding:24px}}
+@media(max-width:800px) {.gc-two-col{grid-template-columns:1fr;gap:0}.gc-heading{flex-direction:column;gap:14px}.gc-heading h1{font-size:23px}.gc-pane{padding:20px 16px}.gc-panel :deep(.arco-tabs-nav){padding:0 16px}.gc-actions{align-items:flex-start;flex-direction:column}.gc-actions>span{max-width:none}.gc-metrics{grid-template-columns:repeat(2,1fr)}.gc-module-progress{flex-wrap:wrap}.gc-upload{padding:18px}}
 </style>

@@ -11,6 +11,7 @@ SGUI 是一个面向需求分析、测试用例生成与自动化执行的测试
 - **需求与知识库**：管理需求资料，通过文档解析和知识检索为测试分析提供上下文。
 - **接口自动化**：管理接口、环境、测试用例与执行任务，查看执行结果。
 - **UI 自动化**：管理页面、元素和操作步骤，通过独立执行器运行测试并记录截图、Trace 和执行结果。
+- **AI 实时执行用例**：从用例管理发起执行，由模型调用浏览器工具逐步操作、验证并上传截图；可选本机可见 Edge 模式观看实际操作。
 - **模型与工具配置**：分别配置文字生成和图片分析模型，使用 MCP 工具、技能库及定时任务扩展测试流程。
 
 AI 生成需要配置可用的模型 API；图片分析需要支持图片输入的模型。普通项目和用例管理不依赖模型 API。生成的用例应经过评审，UI 自动化执行还需要配置可执行步骤与被测系统环境。
@@ -128,6 +129,20 @@ docker compose --env-file local/.env -p guicase-next -f local/compose.yml ps
 
 仅文档生成侧重需求规则与业务流程；加入图片后可补充界面控件、选项和页面状态等信息。图片分析结果同样需要人工核对。
 
+## 从用例管理进行 AI 浏览器执行
+
+这条执行链路使用模型和 MCP 浏览器工具。下方独立 UI 执行器用于已经配置好页面、元素与步骤的自动化任务，两者配置入口不同。
+
+1. 配置并激活可调用工具的模型，在远程 MCP 配置中连接平台工具和浏览器工具，分别测试连接。
+2. 在用例前置条件中写明被测页面 URL、测试数据及初始状态，核对步骤和预期结果。
+3. 点击「用例管理 → 执行 → 开始执行」，在「LLM 对话」查看实时工具调用和逐步结论，在用例详情查看本次步骤截图。
+
+默认浏览器运行在 Docker 中。Windows 用户如需看到 AI 的实际点击与输入，可按 [Windows Edge 浏览器配置](local/BrowserTools.md) 启用可见模式；需要在运行平台的 Windows 电脑上观看该独立 Edge 窗口。
+
+截图支持共享目录相对文件名，以及通过 `SGUI_SCREENSHOT_HOST_ROOT` 配置映射的 Windows 绝对路径。每轮执行使用独立文件名前缀。工具连续失败时会结束为阻塞；页面打开成功不等于用例通过，仍需核对每一步断言与截图。
+
+执行期间不要刷新平台页面或关闭测试浏览器。工具服务重启后，请重新发起执行。遇到目标站点的访问限制或验证码，应记录阻塞并停止。
+
 ## UI 自动化执行器
 
 执行器运行在能够访问被测系统的机器上。仅使用文档生成和用例管理时，可以跳过此部分。
@@ -216,6 +231,20 @@ docker compose --env-file local/.env -p guicase-next -f local/compose.yml exec b
 ```
 
 修改前端后需重新执行 `npm run build`；修改后端后需重启 `backend`。更新源码或执行数据库迁移前，先备份数据库和上传资料。
+
+更新到本版时，保留原有 `local/.env`，按需补充模板中的 `SGUI_BROWSER_*` 和 `SGUI_SCREENSHOT_HOST_ROOT`，然后应用新增的 MCP 挂载：
+
+```bash
+git pull --ff-only
+cd Vue
+npm ci
+npm run build
+cd ..
+docker compose --env-file local/.env -p guicase-next -f local/compose.yml up -d --wait --wait-timeout 600
+docker compose --env-file local/.env -p guicase-next -f local/compose.yml restart backend mcp
+```
+
+Windows 可在项目根目录的 PowerShell 中运行 `./local/Manage-Workbench.ps1 -Action Start` 启动服务，也可将 `Start` 替换为 `Build`、`Stop` 或 `Status`。该脚本按自身目录定位项目，要求 `docker`、`npm.cmd` 已加入 PATH；独立 UI 执行器仍按上文单独启动。
 
 ## 数据与访问配置
 

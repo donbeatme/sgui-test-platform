@@ -4,8 +4,8 @@
     <a-layout-header class="header">
       <div class="left-section">
         <router-link to="/workbench" class="logo" :aria-label="platformName + '工作台'">
-          <img :src="platformIcon" alt="" class="logo-icon" />
-          <span class="logo-text">{{ platformName }}</span>
+          <img :src="platformIcon" alt="中国航信 TravelSky" class="logo-icon" />
+          <span class="logo-text">{{ platformName }}<small>QUALITY WORKSPACE</small></span>
         </router-link>
         <div class="project-selector" v-if="showProjectSelector">
           <a-select
@@ -13,7 +13,8 @@
             :loading="projectStore.loading"
             :disabled="projectStore.loading"
             :placeholder="t('layout.projectPlaceholder')"
-            style="width: 200px; margin-left: 10px;"
+            class="project-select"
+            :aria-label="t('layout.projectPlaceholder')"
             :trigger-props="headerSelectTriggerProps"
             @change="handleProjectChange"
             @popup-visible-change="handlePopupVisibleChange"
@@ -30,7 +31,8 @@
             v-model="selectedEnvironmentId"
             :loading="environmentStore.loading"
             :placeholder="tl('选择环境')"
-            style="width: 180px; margin-left: 10px;"
+            class="environment-select"
+            :aria-label="tl('选择环境')"
             :trigger-props="headerSelectTriggerProps"
             @change="handleEnvironmentChange"
             @popup-visible-change="handleEnvironmentPopupVisibleChange"
@@ -99,7 +101,7 @@
       <!-- 左侧菜单栏 -->
       <a-layout-sider
         :width="200"
-        :collapsed-width="50"
+        :collapsed-width="60"
         :collapsed="collapsed"
         :trigger="null"
         hide-trigger
@@ -232,6 +234,7 @@
             size="small"
             @click="toggleCollapse"
             class="collapse-button"
+            :aria-label="collapsed ? tl('展开') : tl('收起')"
           >
             <template #icon>
               <icon-menu-fold v-if="!collapsed" />
@@ -395,7 +398,7 @@ const activeMenu = computed(() => {
 const openKeys = ref<string[]>([]); // 默认所有子菜单都收起
 
 // 侧边栏收起状态
-const collapsed = ref(false);
+const collapsed = ref(window.matchMedia('(max-width: 900px)').matches);
 
 // 检查各个菜单项的权限
 const hasProjectsPermission = computed(() => {

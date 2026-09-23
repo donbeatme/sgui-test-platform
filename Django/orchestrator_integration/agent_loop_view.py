@@ -1019,6 +1019,11 @@ class AgentLoopStreamAPIView(View):
                 request.user, prompt_id, project
             )
 
+            if test_case_id:
+                from .execution_guard import EXECUTION_INSTRUCTION
+                effective_prompt = (effective_prompt or "") + EXECUTION_INSTRUCTION
+                effective_prompt += f"\n本次截图文件名前缀：case{test_case_id}-{session_id[:10]}-step；每一步分别保存。\n"
+
             # 8.1 如果需要生成脚本，追加脚本生成指令
             if generate_playwright_script:
                 effective_prompt = (
@@ -1075,6 +1080,10 @@ class AgentLoopStreamAPIView(View):
                     tools=tools,
                     system_prompt=effective_prompt,
                 )
+
+                if test_case_id:
+                    from .execution_guard import guarded_execution_middleware
+                    middleware = guarded_execution_middleware(middleware)
 
                 agent = create_agent(
                     llm,
@@ -1270,6 +1279,9 @@ class AgentLoopStreamAPIView(View):
                             # 检测工具调用开始（用于生成 step_start 事件）
                             elif isinstance(chunk, dict):
                                 for node_name, node_output in chunk.items():
+                                    if node_name == "ExecutionGuardMiddleware.before_model" and isinstance(node_output, dict):
+                                        for guard_message in node_output.get("messages", []):
+                                            yield create_sse_data({"type": "stream", "data": guard_message.content})
                                     if node_name == "agent" and isinstance(
                                         node_output, dict
                                     ):

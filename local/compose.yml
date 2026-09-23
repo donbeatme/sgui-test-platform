@@ -98,8 +98,12 @@ services:
       MS_API_HOST: ${MS_API_HOST:-}
       MS_ACCESS_KEY: ${MS_ACCESS_KEY:-}
       MS_SECRET_KEY: ${MS_SECRET_KEY:-}
+      SGUI_SCREENSHOT_ROOT: /tmp/playwright-output
+      SGUI_SCREENSHOT_HOST_ROOT: ${SGUI_SCREENSHOT_HOST_ROOT:-}
     volumes:
       - ../data/playwright-screenshots:/tmp/playwright-output
+      - ../MCP/WHartTest_tools.py:/app/WHartTest_tools.py:ro
+      - ../MCP/screenshot_paths.py:/app/screenshot_paths.py:ro
       - ./mcp-supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
       - ./start-ms-mcp.py:/app/start-ms-mcp.py:ro
     mem_limit: 512m
