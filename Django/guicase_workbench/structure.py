@@ -270,10 +270,39 @@ def validate_outline(payload, unit_ids):
     return result
 
 
+def catalog_preview(text, limit):
+    """Excerpt complete sentences for planning only; source units are untouched."""
+    if len(text) <= limit:
+        return text
+    parts = re.split(r'(?<=[。！？\n])', text)
+    head, tail, size = [], [], 0
+    for part in parts:
+        if size + len(part) > limit // 2:
+            break
+        head.append(part)
+        size += len(part)
+    size = 0
+    for part in reversed(parts[len(head):]):
+        if size + len(part) > limit // 2:
+            break
+        tail.insert(0, part)
+        size += len(part)
+    return ''.join(head) + '\n（目录预览已精简，完整原文保留在材料单元中）\n' + ''.join(tail)
+
+
 def catalog(groups):
     value = [{'id': g['id'], 'document': g['document'], 'original_module_or_heading': g['hint'],
               'titles': g['titles'], 'preview': g['preview'], 'context_only': g['context_only'], 'unit_count': len(g['unit_ids'])} for g in groups]
     text = json.dumps(value, ensure_ascii=False)
+    # Outline summaries can collectively exceed the planning window even when
+    # every source unit is short. Keep every group/title and bound only previews.
+    for limit in (1600, 800, 400, 0):
+        if len(text) <= 60000:
+            break
+        for entry, group in zip(value, groups):
+            entry['preview'] = catalog_preview(group['preview'], limit)
+            entry['preview_is_excerpt'] = len(group['preview']) > limit
+        text = json.dumps(value, ensure_ascii=False)
     if len(text) > 60000:
         raise ValidationError('文档的模块/标题目录过大，请按业务范围减少文档后重试。原文没有被截断。')
     return text
@@ -312,18 +341,50 @@ def validate_plan(payload, groups):
             'shared_rules': str(payload.get('shared_rules') or '')[:5000]}
 
 
-def make_batches(units, groups, plan, budget=16000):
+def prompt_material(unit):
+    material = {k: unit.get(k) for k in ['id', 'kind', 'document', 'pages', 'hint', 'title', 'source_case_id', 'part', 'source_images', 'text', 'evidence_items', 'unknowns']}
+    if 'evidence_items' in unit:
+        # Provenance is already on this material. Keep every evidence ID and
+        # assertion; full metadata is resolved server-side from the checkpoint.
+        material['evidence_items'] = [{k: v for k, v in e.items() if k in
+            ('id', 'kind', 'text', 'quote', 'bbox', 'origin', 'control_id')}
+            for e in unit['evidence_items']]
+    if unit.get('kind') == 'vision' and 'controls' in unit and unit.get('evidence_items'):
+        # Reviewed visual facts/controls already occur in evidence_items. Keep
+        # exclusions explicitly; retain original raw text in the checkpoint.
+        material['text'] = '已核对图片事实及控件见 evidence_items；原图同时附送。'
+        material['excluded_controls'] = [{'name': c['name'], 'text': c['text']} for c in unit['controls'] if c.get('excluded')]
+    return material
+
+
+def make_batches(units, groups, plan, budget=16000, max_images=None, atomic=False):
     by_id = {u['id']: u for u in units}
     group_units = {g['id']: g['unit_ids'] for g in groups}
     batches = []
     for module in plan['modules']:
         ids = list(dict.fromkeys(u for g in module['group_ids'] for u in group_units[g]))
-        pending, size = [], 0
+        if atomic:
+            # A small scene must retain its full text, images and shared rules.
+            # Never turn an overflowing scene into isolated image-only batches.
+            ids = list(dict.fromkeys(ids + [u for g in plan.get('shared_group_ids', []) for u in group_units[g]]))
+            batch = {'module_id': module['id'], 'unit_ids': ids}
+            names = {n for uid in ids for n in by_id[uid].get('source_images', [])}
+            if max_images and len(names) > max_images:
+                raise ValidationError(f'场景演示需要共同阅读全部原图，最多 {max_images} 张；请保留与本次场景直接相关的图片，或改用其他生成方式。')
+            if len(batch_context(batch, units, plan)) > budget:
+                raise ValidationError('场景演示的完整材料超出当前模型上下文预算，请精简到本次业务场景或选择其他生成方式；文档和图片未被分开或截断。')
+            batches.append(batch)
+            continue
+        pending, size, images = [], 0, set()
         for uid in ids:
-            amount = len(by_id[uid]['text'])
-            if pending and size + amount > budget:
+            amount = len(json.dumps(prompt_material(by_id[uid]), ensure_ascii=False))
+            next_images = set(by_id[uid].get('source_images', []))
+            if max_images and len(next_images) > max_images:
+                raise ValidationError('单个材料单元关联图片过多，请重新生成以逐图组织材料。')
+            if pending and (size + amount > budget or (max_images and len(images | next_images) > max_images)):
                 batches.append({'module_id': module['id'], 'unit_ids': pending})
-                pending, size = [], 0
+                pending, size, images = [], 0, set()
+            images.update(next_images)
             pending.append(uid)
             size += amount
         if pending:
@@ -339,7 +400,7 @@ def batch_context(batch, units, plan):
     by_id = {u['id']: u for u in units}
     positions = {u['id']: i for i, u in enumerate(units)}
     module = next(m for m in plan['modules'] if m['id'] == batch['module_id'])
-    materials = [{k: by_id[uid].get(k) for k in ['id', 'document', 'pages', 'hint', 'title', 'source_case_id', 'part', 'source_images', 'text']} for uid in batch['unit_ids']]
+    materials = [prompt_material(by_id[uid]) for uid in batch['unit_ids']]
     neighbors = []
     # Supply neighboring text for prose or oversized units whose semantics may
     # continue across a boundary. Complete structured cases don't need slicing.
@@ -352,6 +413,9 @@ def batch_context(batch, units, plan):
             if 0 <= neighbor < len(units) and units[neighbor]['id'] not in batch['unit_ids'] and units[neighbor]['document'] == unit['document']:
                 n = units[neighbor]
                 neighbors.append({'id': n['id'], 'context_only': True, 'text': n['text'][-1600:] if neighbor < index else n['text'][:1600]})
-    return json.dumps({'task': plan['title'], 'module': module, 'module_outline': [{'path': m['path'], 'description': m['description']} for m in plan['modules']],
+    scope = [e for u in units for e in u.get('evidence_items', []) if e.get('kind') == 'scope']
+    if len(json.dumps(scope, ensure_ascii=False)) > 16000:
+        raise ValidationError('全局验收范围说明超过上下文预算，请收窄范围后新建任务。')
+    return json.dumps({'global_scope': scope, 'task': plan['title'], 'module': module, 'module_outline': [{'path': m['path'], 'description': m['description']} for m in plan['modules']],
                        'shared_rules_to_verify_against_source': plan.get('shared_rules', ''),
-                       'materials': materials, 'neighbor_context': neighbors}, ensure_ascii=False)
+                       'materials': materials, 'neighbor_context': neighbors}, ensure_ascii=False, separators=(',', ':'))

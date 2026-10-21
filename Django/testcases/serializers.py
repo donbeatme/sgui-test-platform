@@ -40,7 +40,18 @@ class TestCaseStepSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class TestCaseListSerializer(serializers.ModelSerializer):
+class TaskSourceSerializer(serializers.ModelSerializer):
+    source_task = serializers.SerializerMethodField()
+
+    def get_source_task(self, obj):
+        extension = getattr(obj, 'guicase_extension', None)
+        job = extension.job if extension and extension.job_id else None
+        if not job or extension.project_id != obj.project_id or job.project_id != obj.project_id:
+            return None
+        return {'id': str(job.pk), 'title': job.title}
+
+
+class TestCaseListSerializer(TaskSourceSerializer):
     """
     用例列表序列化器。
 
@@ -61,6 +72,7 @@ class TestCaseListSerializer(serializers.ModelSerializer):
             "module_id",
             "module_detail",
             "name",
+            "source_task",
             "precondition",
             "level",
             "notes",
@@ -81,7 +93,7 @@ class TestCaseListSerializer(serializers.ModelSerializer):
         return TestCaseScreenshotSerializer(screenshots, many=True).data
 
 
-class TestCaseSerializer(serializers.ModelSerializer):
+class TestCaseSerializer(TaskSourceSerializer):
     """
     用例序列化器，支持嵌套创建和更新用例步骤
     """
@@ -110,6 +122,7 @@ class TestCaseSerializer(serializers.ModelSerializer):
             "module_id",
             "module_detail",
             "name",
+            "source_task",
             "precondition",
             "level",
             "notes",
@@ -576,11 +589,11 @@ class TestCaseResultSerializer(serializers.ModelSerializer):
             "duration",
             "mcp_session_id",
             "screenshots",
-            "execution_log",
+            "execution_log", "case_snapshot", "step_results", "target_urls", "model_info",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "duration"]
+        read_only_fields = fields
 
     def get_screenshots(self, obj):
         """确保返回的截图URL是相对路径"""
@@ -603,6 +616,7 @@ class TestExecutionSerializer(serializers.ModelSerializer):
 
 
 
+    display_name = serializers.ReadOnlyField()
     suite_detail = TestSuiteSerializer(source="suite", read_only=True)
     executor_detail = UserDetailSerializer(source="executor", read_only=True)
     results = TestCaseResultSerializer(many=True, read_only=True)
@@ -614,7 +628,7 @@ class TestExecutionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "suite",
-            "suite_detail",
+            "suite_detail", "display_name", "source", "project", "blocked_count", "cancelled_count",
             "status",
             "executor",
             "executor_detail",
@@ -633,22 +647,7 @@ class TestExecutionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = [
-            "id",
-            "status",
-            "started_at",
-            "completed_at",
-            "total_count",
-            "passed_count",
-            "failed_count",
-            "skipped_count",
-            "error_count",
-            "celery_task_id",
-            "duration",
-            "pass_rate",
-            "created_at",
-            "updated_at",
-        ]
+        read_only_fields = fields
 
 
 class TestExecutionCreateSerializer(serializers.Serializer):

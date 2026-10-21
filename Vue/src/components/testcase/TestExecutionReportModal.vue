@@ -53,6 +53,9 @@
         </a-card>
       </div>
 
+      <a-alert style="margin: 12px 0">通过率以本次计划用例数为分母。{{ report.source === 'playwright_script' ? '本次直接运行保存的 Playwright 脚本，以 expect 断言和本轮截图记录结果，未调用 LLM。' : 'AI 报告经过步骤和本轮截图校验；业务判断仍可人工复核。' }}</a-alert>
+      <a-space style="margin-bottom: 16px"><a-tag color="gold">阻塞 {{ report.statistics.blocked || 0 }}</a-tag><a-tag color="cyan">未触发／跳过 {{ report.statistics.skipped || 0 }}</a-tag><a-tag color="gray">取消 {{ report.statistics.cancelled || 0 }}</a-tag></a-space>
+      <a-alert v-if="report.statistics.skipped" type="info" style="margin-bottom: 16px">未触发／不适用不计为业务通过、失败或阻塞。请查看逐步记录中的实际状态与判断依据。</a-alert>
       <!-- 结果列表 -->
       <div class="results-section">
           <a-table
@@ -105,11 +108,26 @@
         <a-descriptions-item :label="reportText.executionDuration">
           {{ formatDuration(selectedResult.execution_time) }}
         </a-descriptions-item>
-        <a-descriptions-item v-if="selectedResult.error_message" :label="reportText.errorInfo">
+        <a-descriptions-item v-if="selectedResult.error_message" :label="selectedResult.status === 'skip' ? '未触发说明' : reportText.errorInfo">
           <pre class="error-message">{{ selectedResult.error_message }}</pre>
         </a-descriptions-item>
       </a-descriptions>
 
+      <a-descriptions :column="1" bordered style="margin-top: 16px">
+        <a-descriptions-item label="用例版本">{{ selectedResult.case_snapshot?.revision?.slice(0, 16) || '历史记录无快照' }}</a-descriptions-item>
+        <a-descriptions-item label="执行入口">{{ selectedResult.target_urls?.join('，') || '未配置，详见本轮操作与截图' }}</a-descriptions-item>
+        <a-descriptions-item label="执行模型">{{ selectedResult.model_info?.model || (report?.source === 'playwright_script' ? 'Playwright 脚本（不调用 LLM）' : '未记录') }}</a-descriptions-item>
+      </a-descriptions>
+      <a-divider>本次步骤与断言</a-divider>
+      <a-empty v-if="!selectedResult.step_results?.length" description="未收到完整的结构化步骤结果" />
+      <a-card v-for="step in selectedResult.step_results" :key="step.step_number" style="margin-bottom: 12px">
+        <template #title>{{ step.step_number }}. {{ step.description }}</template>
+        <a-tag :color="getStatusColor(step.status)">{{ getStatusText(step.status) }}</a-tag>
+        <p><strong>预期：</strong>{{ step.expected_result }}</p>
+        <p style="white-space: pre-line"><strong>实际：</strong>{{ step.actual || '未执行或未提供' }}</p>
+        <p v-if="step.reason"><strong>校验说明：</strong>{{ step.reason }}</p>
+        <a-image v-for="url in step.screenshots" :key="url" :src="url" :width="160" style="margin: 6px" />
+      </a-card>
       <a-divider>{{ reportText.executionLogs }}</a-divider>
       <div class="execution-log-container" v-html="formatExecutionLog(getExecutionLog(selectedResult.testcase_id))"></div>
 
@@ -339,8 +357,8 @@ const handleClose = () => {
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
     pending: 'gray', running: 'blue', completed: 'green',
-    pass: 'green', fail: 'red',
-    cancelled: 'orange', error: 'orangered', skip: 'cyan'
+    pass: 'green', fail: 'red', failed: 'red', blocked: 'gold', not_run: 'gray',
+    cancelled: 'orange', error: 'orangered', skip: 'cyan', skipped: 'cyan'
   };
   return colors[status] || 'gray';
 };
@@ -351,10 +369,11 @@ const getStatusText = (status: string) => {
     running: reportText.value.running,
     completed: reportText.value.completed,
     pass: reportText.value.pass,
-    fail: reportText.value.fail,
+    fail: reportText.value.fail, failed: reportText.value.fail, blocked: '阻塞', not_run: '未执行',
     cancelled: reportText.value.cancelled,
     error: reportText.value.error,
-    skip: reportText.value.skip,
+    skip: report.value?.source === 'playwright_script' ? '未触发／不适用' : reportText.value.skip,
+    skipped: '未触发／不适用',
   };
   return texts[status] || status;
 };

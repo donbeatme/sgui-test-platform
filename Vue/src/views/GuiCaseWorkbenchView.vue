@@ -2,7 +2,7 @@
   <div class="gc-workbench" role="region" aria-label="图文用例工作台内容" tabindex="0">
     <div class="gc-heading">
       <div><div class="gc-eyebrow">SGUI · 用例工程</div><h1>图文用例工作台</h1><p>整理需求与界面，生成可评审、可追溯的测试用例。</p></div>
-      <a-space wrap><a-button @click="tab = 'history'">生成记录</a-button><a-button @click="startNew">新建任务</a-button><a-button type="primary" @click="router.push('/testcases')">用例管理 <icon-arrow-right /></a-button></a-space>
+      <a-space wrap><a-button :disabled="!projectId||busy" @click="openSettings">模型、规则与提示词</a-button><a-button @click="tab = 'history'">生成记录</a-button><a-button @click="startNew">新建任务</a-button><a-button type="primary" @click="router.push('/testcases')">用例管理 <icon-arrow-right /></a-button></a-space>
     </div>
     <a-alert v-if="!projectId" type="info">请先在顶部选择项目，或到项目管理中创建项目。<a-button type="text" @click="router.push('/projects')">项目管理</a-button></a-alert>
     <a-alert v-if="error" type="error" closable @close="error = ''" class="gc-error">{{ error }}</a-alert>
@@ -10,14 +10,14 @@
       <aside class="gc-guide">
         <div class="gc-guide-caption">当前项目</div>
         <div class="gc-guide-title">{{ projectStore.currentProject?.name }}</div>
-        <button v-for="(item, i) in journey" :key="item.title" class="gc-journey" :class="{active: tab === item.tab}" @click="tab = item.tab"><span>{{ i + 1 }}</span><div><strong>{{ item.title }}</strong><small>{{ item.desc }}</small></div></button>
+        <button v-for="(item, i) in journey" :key="item.title" class="gc-journey" :class="{active: activeJourney === i}" :aria-current="activeJourney===i?'step':undefined" @click="goJourney(i)"><span>{{ i + 1 }}</span><div><strong>{{ item.title }}</strong><small>{{ item.desc }}</small></div></button>
         <div class="gc-guide-divider"></div>
         <div class="gc-guide-caption">测试资源</div>
         <router-link to="/requirements"><icon-file /> 需求文档与评审</router-link>
-        <router-link to="/knowledge-management"><icon-book /> 知识库</router-link>
-        <router-link to="/ui-automation"><icon-computer /> UI 自动化</router-link>
-        <router-link to="/api-testing"><icon-cloud /> 接口自动化</router-link>
-        <router-link to="/task-center"><icon-schedule /> 定时任务</router-link>
+        <router-link v-if="isModuleVisible('knowledge-management')" to="/knowledge-management"><icon-book /> 知识库</router-link>
+        <router-link v-if="isModuleVisible('ui-automation')" to="/ui-automation"><icon-computer /> UI 自动化</router-link>
+        <router-link v-if="isModuleVisible('api-testing')" to="/api-testing"><icon-cloud /> 接口自动化</router-link>
+        <router-link v-if="isModuleVisible('task-center')" to="/task-center"><icon-schedule /> 定时任务</router-link>
         <div class="gc-guide-tip">生成结果先进入草稿。正式用例、执行记录与报告在平台中统一管理。</div>
       </aside>
       <main class="gc-panel">
@@ -25,67 +25,82 @@
           <a-tab-pane key="input" title="需求与图片">
             <div class="gc-pane">
               <a-form layout="vertical">
-                <div class="gc-section-heading"><span>01</span><div><h2>准备需求材料</h2><p>上传文档，或输入需求说明。添加界面截图，让用例覆盖更多交互细节。</p></div></div>
+                <div class="gc-section-heading"><span>01</span><div><h2>准备需求材料</h2><p>上传或选用已有文档、上传截图，也可只填写需求说明。至少提供一种材料即可生成。</p></div></div>
                 <div class="gc-two-col">
                   <div class="gc-upload" :class="{'gc-drop-active': dragging === 'docs'}" @dragover.prevent="dragging = 'docs'" @dragleave.prevent="dragging = ''" @drop.prevent="dropFiles($event, 'docs')">
-                    <strong><icon-file /> 需求文档</strong><p>TXT / MD / PDF / DOCX · 最多 {{ limits.documents }} 份（含已有文档）· 单份 ≤ {{ limits.document_bytes / MB }} MB</p>
-                    <input ref="docPicker" class="gc-hidden-picker" aria-label="上传需求文档" type="file" multiple accept=".txt,.md,.pdf,.docx" :disabled="busy" @change="pickFiles($event, 'docs')" />
-                    <div class="gc-upload-tools"><a-button :disabled="busy" @click="docPicker?.click()"><icon-plus /> {{ docs.length ? '继续添加文档' : '选择需求文档' }}</a-button><a-button v-if="docs.length" type="text" :disabled="busy" @click="docs = []">清空待上传文档</a-button></div>
-                    <p>支持多选、分批追加或拖放文件；点击生成前可随时移除。</p>
-                    <ul v-if="docs.length" class="gc-file-list" aria-label="待上传需求文档"><li v-for="(f, index) in docs" :key="fileKey(f)"><div><strong>{{ f.name }}</strong><small>{{ formatSize(f.size) }} · 待上传</small></div><a-button type="text" status="danger" :disabled="busy" :aria-label="`移除文档 ${f.name}`" @click="docs.splice(index, 1)">移除</a-button></li></ul>
+                    <strong><icon-file /> 需求文档 <a-tag size="small" color="blue">可选</a-tag></strong><p>TXT / MD / PDF / DOCX · 最多 {{ limits.documents }} 份（含已有文档）· 单份 ≤ {{ limits.document_bytes / MB }} MB</p>
+                    <div class="gc-upload-tools"><a-button :disabled="busy" @click="documentsVisible=true"><icon-plus /> 选择需求文档</a-button><a-button v-if="documentCount" type="text" :disabled="busy" @click="clearDocuments">清空文档选择</a-button></div>
+                    <p>支持上传新文档、选用已有文档，也可混合多选或拖入新文件。移除只取消本次选择。</p>
+                    <ul v-if="documentCount" class="gc-file-list" aria-label="已选需求文档"><li v-for="(f, index) in docs" :key="fileKey(f)"><div><strong>{{ f.name }}</strong><small>新文档 · {{ formatSize(f.size) }} · 待上传</small></div><a-button type="text" status="danger" :disabled="busy" :aria-label="`移除文档 ${f.name}`" @click="removeDocs(index)">移除</a-button></li><li v-for="id in documentIds" :key="id"><div><strong>{{ documents.find(d=>d.id===id)?.title||id }}</strong><small>已有文档 · {{ id.slice(0,8) }}</small></div><a-button type="text" status="danger" :disabled="busy" :aria-label="`移除已有文档 ${id.slice(0,8)}`" @click="removeExistingDocument(id)">移除</a-button></li></ul>
                   </div>
                   <div class="gc-upload" :class="{'gc-drop-active': dragging === 'images'}" @dragover.prevent="dragging = 'images'" @dragleave.prevent="dragging = ''" @drop.prevent="dropFiles($event, 'images')">
-                    <strong><icon-image /> UI 界面截图 <a-tag size="small" color="blue">可选</a-tag></strong><p>JPG / PNG / WebP · 最多 {{ limits.images }} 张 · 单张 ≤ {{ limits.image_bytes / MB }} MB</p>
+                    <strong><icon-image /> UI 界面截图 <a-tag size="small" color="blue">可选</a-tag></strong><p>JPG / PNG / WebP · 最多 {{ imageLimit }} 张 · 单张 ≤ {{ limits.image_bytes / MB }} MB</p>
                     <input ref="imagePicker" class="gc-hidden-picker" aria-label="上传界面截图" type="file" multiple accept="image/png,image/jpeg,image/webp" :disabled="busy" @change="pickFiles($event, 'images')" />
-                    <div class="gc-upload-tools"><a-button :disabled="busy" @click="imagePicker?.click()"><icon-plus /> {{ images.length ? '继续添加图片' : '选择界面图片' }}</a-button><a-button v-if="images.length" type="text" :disabled="busy" @click="clearImages">清空图片</a-button></div>
+                    <div class="gc-upload-tools"><a-button :disabled="busy" @click="imagePicker?.click()"><icon-plus /> {{ images.length ? '继续添加图片' : '选择界面图片' }}</a-button><a-button v-if="images.length" type="text" :disabled="busy" @click="clearSelectedImages">清空图片</a-button></div>
                     <p>图片按每批最多 {{ limits.vision_batch_size }} 张依次解析，完成的批次会保存，可从断点继续。全部分析结果一起用于 AI 模块规划；图片越多，生成时间和模型调用量越大。</p>
                     <div class="gc-images"><div v-for="(img, index) in imagePreviews" :key="img.url"><img :src="img.url" :alt="img.name" loading="lazy" decoding="async" /><small :title="img.name">{{ img.name }}</small><a-button type="text" status="danger" size="mini" :disabled="busy" :aria-label="`移除图片 ${img.name}`" @click="removeImage(index)">移除</a-button></div></div>
                   </div>
                 </div>
+                <a-space v-if="filePast.length||fileFuture.length" wrap class="gc-space-bottom"><a-button :disabled="busy||!filePast.length" @click="restoreFileSelection(false)">撤销材料变更</a-button><a-button :disabled="busy||!fileFuture.length" @click="restoreFileSelection(true)">重做材料变更</a-button><span>仅调整本次材料选择，不删除原文件或已有文档。</span></a-space>
                 <a-alert v-if="fileError" type="warning" class="gc-space-bottom" closable @close="fileError = ''">{{ fileError }}</a-alert>
-                <a-form-item label="引用已有需求文档（可选）"><a-select v-model="documentIds" multiple allow-clear :disabled="busy" placeholder="可多选，点击标签 × 移除；来自当前项目的需求管理" :options="documentOptions" /></a-form-item>
-                <p class="gc-material-summary" aria-live="polite">已选 {{ docs.length + documentIds.length }}/{{ limits.documents }} 份文档、{{ images.length }}/{{ limits.images }} 张图片 · 待上传 {{ formatSize(uploadBytes) }}/{{ limits.upload_bytes / MB }} MB。合并文字上限 {{ (limits.context_chars / 10000).toLocaleString() }} 万字符；按标题、表格与完整用例组织材料，由 AI 规划模块后逐模块生成。过长单元会保留接续上下文，原文保留供评审。</p>
-                <a-checkbox v-model="includeDocumentImages">同时分析所选 DOCX 文档的内嵌图片（与上传截图合计最多 {{ limits.images }} 张）</a-checkbox>
+                <a-alert v-if="imageLimitExceeded" type="warning" class="gc-space-bottom">当前生成方式最多 {{ imageLimit }} 张图片。已选文件仍保留，请移除多余图片或切换生成方式后再生成。</a-alert>
+                <p class="gc-material-summary" aria-live="polite">已选 {{ docs.length + documentIds.length }}/{{ limits.documents }} 份文档、{{ images.length }}/{{ imageLimit }} 张图片 · 待上传 {{ formatSize(uploadBytes) }}/{{ limits.upload_bytes / MB }} MB。合并文字上限 {{ (limits.context_chars / 10000).toLocaleString() }} 万字符；按标题、表格与完整用例组织材料，由 AI 规划模块后逐模块生成。过长单元会保留接续上下文，原文保留供评审。</p>
+                <a-checkbox v-model="includeDocumentImages" :disabled="busy||!documentCount">同时分析所选 DOCX 文档的内嵌图片（与上传截图合计最多 {{ imageLimit }} 张）</a-checkbox>
                 <div class="gc-section-heading gc-section-divider"><span>02</span><div><h2>补充任务信息 <small>可选</small></h2><p>已有需求文档时可以留空，AI 会根据材料归纳任务名称。</p></div></div>
                 <a-form-item label="任务名称（可选）"><a-input v-model="title" :disabled="busy" placeholder="留空，由 AI 根据需求材料自动命名" :max-length="200" /></a-form-item>
                 <a-form-item label="需求说明（可选）"><a-textarea v-model="requirement" :disabled="busy" placeholder="已有需求文档时可留空；也可补充测试范围、重点或限制。没有文档时，可直接在这里输入需求。" :auto-size="{minRows: 4, maxRows: 12}" :max-length="limits.text_chars" show-word-limit /></a-form-item>
                 <div class="gc-section-heading gc-section-divider"><span>03</span><div><h2>选择生成设置</h2><p>为文字与图片选择对应模型，也可以沿用当前配置。</p></div></div>
+                <a-form-item label="生成方式"><a-select v-model="generationProfile" :disabled="busy" :options="[{value:'scenario',label:'场景演示 · 最多两条完整流程'},{value:'workflow',label:'业务流程与边界（推荐）'},{value:'quick',label:'快速试生成 · 少量代表性流程'},{value:'detailed',label:'按功能模块细分'}]" /><template #extra>{{ generationProfile==='scenario'?'适合演示 1–2 个明确业务场景：每场景一条连续流程，最多 6 张相关图片，文档与原图一起生成并评审。材料过大时提示精简，不拆散场景；不代表全面覆盖。':generationProfile==='quick'?'适合现场试生成：少量材料、每批最多 3 条，不代表全面覆盖；仍保留原图核对与依据评审。':generationProfile==='workflow'?'以完整业务目标组织用例，同时覆盖材料支持的边界、异常恢复和组合场景。数量由材料决定，避免按每个控件拆分。':'按功能模块逐批生成，适合详细检查；材料重复引用时可能产生相近场景，需要评审去重。' }}</template></a-form-item>
                 <div class="gc-two-col gc-space-top">
                   <a-form-item label="文字生成模型"><a-select v-model="textModelId" allow-clear placeholder="沿用阶段设置 / 当前激活模型" :options="modelOptions" /></a-form-item>
                   <a-form-item label="图片解析模型"><a-select v-model="visionModelId" allow-clear placeholder="选择支持图片输入的模型" :options="visionModelOptions" /></a-form-item>
                 </div>
-                <a-alert v-if="(images.length || includeDocumentImages) && !visionModelOptions.length" type="warning">尚无支持图片输入的模型。请在系统管理 → 模型配置中添加视觉模型，再使用图片生成。</a-alert>
-                <a-form-item label="补充知识库（可选）"><a-select v-model="knowledgeBaseId" allow-clear placeholder="选择当前项目的知识库" :options="knowledgeOptions" /></a-form-item>
+                <a-alert v-if="(images.length || withDocumentImages) && !visionModelOptions.length" type="warning">尚无支持图片输入的模型。请在系统管理 → 模型配置中添加视觉模型，再使用图片生成。</a-alert>
+                <a-form-item v-if="isModuleVisible('knowledge-management')" label="补充知识库（可选）"><a-select v-model="knowledgeBaseId" allow-clear placeholder="选择当前项目的知识库" :options="knowledgeOptions" /></a-form-item>
               </a-form>
-              <div class="gc-actions"><span>{{ busy ? '正在上传并解析材料，请稍候…' : '点击生成后，文档将保存到当前项目的需求管理中。' }}</span><a-space wrap><a-button :disabled="busy" @click="fillExample">填入文字示例</a-button><a-button type="primary" :loading="busy" @click="generate"><icon-thunderbolt /> 生成用例草稿</a-button></a-space></div>
+              <div class="gc-actions"><span aria-live="polite">{{ busy ? '正在上传并解析材料，请稍候…' : !hasGenerationInput?'请先选择需求文档、上传图片或填写需求说明，至少提供一种。':'含图片时先核对识别控件，再继续生成。仅文档或文字任务直接生成。' }}</span><a-space wrap><a-button :disabled="busy" @click="fillExample">填入文字示例</a-button><a-button type="primary" :loading="busy" :disabled="busy||!hasGenerationInput||imageLimitExceeded" @click="generate"><icon-thunderbolt /> {{ images.length||withDocumentImages?'识别图片并准备生成':'生成用例草稿' }}</a-button></a-space></div>
             </div>
           </a-tab-pane>
           <a-tab-pane key="draft" title="用例结果">
             <div class="gc-pane">
               <a-empty v-if="!job" description="开始一次生成，或从生成记录中打开草稿。" />
               <template v-else>
-                <div class="gc-result-heading"><div><h2>{{ job.title }}</h2><p>{{ job.stage }}</p></div><a-tag :color="statusColor(job.status)">{{ statusLabel(job.status) }}</a-tag></div>
+                <div ref="resultHeading" class="gc-result-heading"><div><h2>{{ job.title }}</h2><p>{{ job.stage }}</p></div><a-tag :color="statusColor(job.status)">{{ statusLabel(job.status) }}</a-tag></div>
+                <p v-if="job.progress?.model_usage" class="gc-material-summary" aria-live="polite">{{ job.progress.generation_profile_label }} · 已完成模型请求 {{ job.progress.model_usage.calls }} 次 · 累计请求耗时 {{ Math.round(job.progress.model_usage.seconds) }} 秒（不含当前请求、排队及人工核对；旧任务仅统计更新后的请求）。</p>
+                <nav class="gc-review-nav" aria-label="材料与用例评审入口">
+                  <button v-if="job.images?.length" :class="{active:reviewSection==='controls'}" @click="showReview('controls')"><strong>图片控件 · {{ controlCount }}</strong><small>{{ job.status==='awaiting_controls'?'需要逐图核对后继续':'原图标注 / 识别清单' }}</small></button>
+                  <button :disabled="!job.cases.some(c=>c.grounding_version)" :class="{active:reviewSection==='pending'}" @click="showReview('pending')"><strong>待确认问题 · {{ pendingCases }}</strong><small>集中处理影响入库的问题</small></button>
+                  <button :disabled="!job.cases.some(c=>c.grounding_version)" :class="{active:reviewSection==='cases'}" @click="showReview('cases')"><strong>逐条依据</strong><small>对照原图、原文与步骤</small></button>
+                  <button :disabled="!job.progress?.coverage?.evidence" :class="{active:reviewSection==='coverage'}" @click="showReview('coverage')"><strong>覆盖检查</strong><small>关联情况 / 疑似遗漏</small></button>
+                </nav>
                 <a-alert v-if="running" type="info"><a-spin /> 后台正在处理，离开页面后任务会继续。<a-button type="text" @click="cancelJob">取消后续处理</a-button></a-alert>
+                <a-alert v-if="job.status==='awaiting_controls'" type="warning" class="gc-space-top">图片识别已完成，任务正在等待你核对控件。点击上方“图片控件”，逐张检查后点击“按核对结果继续生成”。等待期间不占用生成工作进程。</a-alert>
                 <p v-if="job.progress?.vision?.image_total" class="gc-material-summary" aria-live="polite">图片解析已完成 {{ job.progress.vision.image_done }}/{{ job.progress.vision.image_total }} 张<span v-if="job.progress.vision.batch_total"> · {{ job.progress.vision.batch_done }}/{{ job.progress.vision.batch_total }} 批</span>。完成的分析已保存，后续统一规划业务模块。</p>
+                <SourceExtractionPanel :progress="job.progress?.source_extraction" />
                 <a-alert v-if="job.status === 'failed' || job.status === 'cancelled'" type="warning" class="gc-space-bottom">{{ job.progress?.last_error || '任务未完成，已保留可用进度。' }}<a-space wrap><a-button v-if="job.progress?.resumable" type="primary" :loading="busy" @click="resumeJob">从断点继续</a-button><a-button type="text" :disabled="busy" @click="restoreMaterials">调整材料后新建任务</a-button></a-space></a-alert>
-                <a-collapse v-if="job.progress?.modules?.length" class="gc-space-top gc-space-bottom" :default-active-key="['plan']">
+                <div ref="reviewAnchor">
+                  <ImageControlPanel v-if="job.images?.length" v-show="reviewSection==='controls'" :key="job.id" :items="job.control_images||[]" :images="job.images" :editable="job.status==='awaiting_controls'" :busy="busy" @save="saveControls" @dirty="controlsDirty=$event" @open="editCase" />
+                  <GroundingPanel v-show="reviewSection!=='controls'" :key="job.id" ref="groundingPanel" :cases="job.cases" :coverage="job.progress?.coverage?.evidence" :images="job.images || []" :editable="['draft','saved'].includes(job.status)" :busy="busy" :has-unsaved-changes="dirty" @open="editCase" @confirm="confirmBasis" @revoke="revokeBasis" />
+                </div>
+                <a-collapse v-if="job.progress?.modules?.length" class="gc-space-top gc-space-bottom">
                   <a-collapse-item key="plan" header="AI 模块规划与生成进度">
                     <p>已完成 {{ job.progress.batch_done }}/{{ job.progress.batch_total }} 批。按业务模块组织资料，已完成的结果会保存；原文来源随用例保留。</p>
                     <div v-for="module in job.progress.modules" :key="module.id" class="gc-module-progress"><div><strong>{{ module.path }}</strong><p>{{ module.description }}</p></div><a-tag :color="module.batch_done === module.batch_total ? 'green' : 'blue'">{{ module.batch_done }}/{{ module.batch_total }} 批 · {{ module.case_count }} 条</a-tag></div>
                     <p v-if="job.progress.coverage">业务材料 {{ job.progress.coverage.assigned_units }} 个单元，生成用例显式引用 {{ job.progress.coverage.cited_units }} 个。其余单元和跨模块流程需继续检查覆盖；材料已归类不代表需求已全部测试。</p>
                   </a-collapse-item>
                 </a-collapse>
-                <div v-if="job.cases.length" class="gc-metrics"><div><b>{{ job.cases.length }}</b><span>条用例</span></div><div><b>{{ job.issues?.errors || 0 }}</b><span>个规则错误</span></div><div><b>{{ job.issues?.warnings || 0 }}</b><span>条改进建议</span></div><div><b>{{ job.issues?.duplicates?.length || 0 }}</b><span>条重复来源</span></div></div>
+                <div v-if="job.cases.length" class="gc-metrics"><div><b>{{ job.cases.length }}</b><span>条用例</span></div><div><b>{{ job.issues?.errors || 0 }}</b><span>项待处理问题</span></div><div><b>{{ job.issues?.warnings || 0 }}</b><span>条改进建议</span></div><div><b>{{ job.issues?.duplicates?.length || 0 }}</b><span>条重复来源</span></div></div>
                 <div v-if="job.cases.length" class="gc-result-tools"><a-space><a-input v-model="caseSearch" placeholder="搜索名称或模块" allow-clear style="width:230px" /><a-button v-if="job.status === 'draft'" :loading="busy" @click="saveDraft">校验并保存草稿</a-button></a-space><a-space><a-dropdown @select="download"><a-button>导出 <icon-down /></a-button><template #content><a-doption value="xlsx">Excel</a-doption><a-doption value="docx">Word</a-doption><a-doption value="json">JSON（完整字段）</a-doption><a-doption value="feature">Gherkin Feature</a-doption></template></a-dropdown><a-button v-if="job.status === 'draft'" type="primary" :loading="busy" @click="commit">确认存入用例管理</a-button><a-button v-else-if="job.status === 'saved'" type="primary" @click="router.push('/testcases')">查看正式用例</a-button></a-space></div>
-                <a-alert v-if="dirty" type="warning" class="gc-space-bottom">草稿有未保存的修改。存入用例管理或导出前会先保存并重新校验。</a-alert>
+                <a-space v-if="job.status==='draft'" wrap class="gc-space-bottom"><a-button :disabled="busy||!caseHistory.canUndo.value" @click="caseHistory.undo">撤销草稿修改</a-button><a-button :disabled="busy||!caseHistory.canRedo.value" @click="caseHistory.redo">重做草稿修改</a-button><a-popconfirm content="恢复到上次保存的用例草稿？" @ok="discardCases"><a-button :disabled="busy||!dirty">放弃草稿修改</a-button></a-popconfirm></a-space>
+                <a-alert v-if="dirty" type="warning" class="gc-space-bottom">草稿有未保存的修改。存入用例管理或导出前会先保存并重新校验；保存后本次撤销记录清空。</a-alert>
                 <a-table v-if="job.cases.length" :data="filteredCases" :pagination="{pageSize:10,showTotal:true}" row-key="tc_sno" :scroll="{x:780}">
-                  <template #columns><a-table-column title="用例名称" data-index="tc_name" :width="320"><template #cell="{record}"><a-link @click="editCase(record.tc_sno)">{{ record.tc_name }}</a-link><small class="gc-subtext">{{ record.tc_sno }}</small></template></a-table-column><a-table-column title="模块" data-index="module_path" :width="220" /><a-table-column title="级别" data-index="level" :width="65" /><a-table-column title="场景" data-index="judge_type" :width="70" /><a-table-column title="步骤" :width="60"><template #cell="{record}">{{ record.steps.length }}</template></a-table-column><a-table-column title="操作" :width="90"><template #cell="{record}"><a-button type="text" @click="editCase(record.tc_sno)">{{ job.status === 'draft' ? '编辑' : '详情' }}</a-button></template></a-table-column></template>
+                  <template #columns><a-table-column title="用例名称" data-index="tc_name" :width="320"><template #cell="{record}"><a-link @click="editCase(record.tc_sno)">{{ record.tc_name }}</a-link><small class="gc-subtext">{{ record.tc_sno }}</small></template></a-table-column><a-table-column title="模块" data-index="module_path" :width="220" /><a-table-column title="级别" data-index="level" :width="65" /><a-table-column title="场景" data-index="judge_type" :width="70" /><a-table-column title="步骤" :width="60"><template #cell="{record}">{{ record.steps.length }}</template></a-table-column><a-table-column title="操作" :width="140"><template #cell="{record}"><a-button type="text" @click="editCase(record.tc_sno)">{{ job.status === 'draft' ? '编辑' : '详情' }}</a-button><a-button v-if="job.status==='draft'" type="text" status="danger" :disabled="busy" @click="deleteCase(record.tc_sno)">删除</a-button></template></a-table-column></template>
                 </a-table>
                 <a-collapse class="gc-space-top">
                   <a-collapse-item v-if="job.issues?.detail?.length" key="issues" header="查看规则问题"><div v-for="(item,i) in job.issues.detail" :key="i" class="gc-issue"><strong>{{ item.case }}</strong><div v-for="(issue,j) in item.issues" :key="j"><a-tag :color="issue.level === 'error' ? 'red' : 'orange'" size="small">{{ issue.level === 'error' ? '错误' : '建议' }}</a-tag> {{ issue.message }}</div></div></a-collapse-item>
                   <a-collapse-item key="notes" header="生成过程与来源说明"><pre v-for="(note,i) in job.notes" :key="i" class="gc-note">{{ note }}</pre><p v-if="!job.notes.length">本任务暂无附加记录。</p></a-collapse-item>
                 </a-collapse>
-                <div v-if="job.status === 'saved'" class="gc-next"><strong>接下来：评审与执行</strong><p>正式用例已进入待审核状态。需要自动执行时，在 SGUI 中配置页面、元素与 UI 步骤，或使用智能助手和测试套件执行。</p><a-space><a-button @click="router.push('/ui-automation')">UI 自动化</a-button><a-button @click="router.push('/testsuites')">测试套件</a-button><a-button @click="router.push('/langgraph-chat')">智能助手</a-button></a-space></div>
+                <div v-if="job.status === 'saved'" class="gc-next"><strong>接下来：评审与执行</strong><p>正式用例已进入待审核状态。核对后，在用例管理中点击执行；进度显示在 LLM 对话中，完成后到执行历史查看报告。</p><a-space><a-button @click="router.push('/testcases')">用例管理</a-button><a-button @click="router.push('/test-executions')">执行历史</a-button><a-button v-if="isModuleVisible('ui-automation')" @click="router.push('/ui-automation')">UI 自动化</a-button><a-button v-if="isModuleVisible('testsuites')" @click="router.push('/testsuites')">测试套件</a-button></a-space></div>
               </template>
             </div>
           </a-tab-pane>
@@ -94,17 +109,23 @@
               <a-table :data="jobs" row-key="id" :pagination="{pageSize:10,showTotal:true}" :scroll="{x:720}"><template #columns><a-table-column title="任务名称" data-index="title"><template #cell="{record}"><a-link @click="openJob(record.id)">{{ record.title }}</a-link></template></a-table-column><a-table-column title="状态" :width="100"><template #cell="{record}"><a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag></template></a-table-column><a-table-column title="用例数" data-index="count" :width="80" /><a-table-column title="创建时间" :width="180"><template #cell="{record}">{{ new Date(record.created_at).toLocaleString() }}</template></a-table-column></template></a-table>
             </div>
           </a-tab-pane>
-          <a-tab-pane key="settings" title="模型、规则与提示词">
-            <div class="gc-pane"><a-alert>模型连接统一维护在 SGUI 中。这里为不同生成阶段选择模型；Embedding 沿用知识库配置。</a-alert><a-button class="gc-space-top" @click="router.push('/llm-configs')">打开模型配置</a-button>
-              <div class="gc-two-col gc-space-top"><a-form-item v-for="stage in stages" :key="stage.key" :label="stage.label"><a-select v-model="config.stages[stage.key]" :disabled="!canConfigure" allow-clear :placeholder="stage.placeholder" :options="stage.key === 'vision' ? visionModelOptions : modelOptions" /></a-form-item></div>
-              <a-collapse><a-collapse-item v-for="prompt in prompts" :key="prompt.key" :header="prompt.label"><a-textarea v-model="config.prompts[prompt.key]" :disabled="!canConfigure" :auto-size="{minRows:4,maxRows:12}" :max-length="10000" /></a-collapse-item><a-collapse-item key="rules" :header="`校验规则 · ${config.rules.length} 条`"><p>支持必填、枚举、正则匹配、正则排除、长度和数量六类规则。错误阻止入库，建议允许入库。结构必填项始终生效。</p><a-table :data="config.rules" :pagination="false" row-key="id"><template #columns><a-table-column title="启用" :width="70"><template #cell="{record}"><a-switch v-model="record.enabled" size="small" :disabled="!canConfigure" /></template></a-table-column><a-table-column title="字段" data-index="field" /><a-table-column title="类型" data-index="type" /><a-table-column title="级别" :width="120"><template #cell="{record}"><a-select v-model="record.level" :disabled="!canConfigure" :options="[{label:'错误',value:'error'},{label:'建议',value:'warn'}]" /></template></a-table-column><a-table-column title="提示" data-index="message" /></template></a-table><a-button class="gc-space-top" @click="openRulesEditor">编辑规则定义 / 添加规则</a-button></a-collapse-item></a-collapse>
-              <div class="gc-actions"><span>设置按项目保存，仅对新任务生效。</span><a-button type="primary" :disabled="!canConfigure" :loading="busy" @click="saveSettings">保存工作台设置</a-button></div>
-            </div>
-          </a-tab-pane>
+
         </a-tabs>
       </main>
     </div>
-    <a-drawer v-model:visible="editorVisible" width="680px" :title="job?.status === 'saved' ? '正式用例详情' : '编辑草稿用例'" :footer="job?.status !== 'saved'" @ok="applyEdit">
+    <a-modal v-model:visible="settingsVisible" title="模型、规则与提示词" width="min(880px, 94vw)" :mask-closable="false" :on-before-cancel="closeSettings">
+      <a-alert v-if="error" type="error" class="gc-space-bottom">{{ error }}</a-alert>
+      <a-space wrap class="gc-space-bottom"><a-button :disabled="!configHistory.canUndo.value||busy" @click="configHistory.undo">撤销配置修改</a-button><a-button :disabled="!configHistory.canRedo.value||busy" @click="configHistory.redo">重做配置修改</a-button><a-button :disabled="!settingsDirty||busy" @click="resetSettings">恢复已保存设置</a-button></a-space>
+            <div class="gc-settings-body"><a-alert>模型连接统一维护在 SGUI 中。这里为不同生成阶段选择模型。图片任务会在生成和依据评审时带上本批原图；所选模型不支持图片时，使用图片解析模型。<span v-if="isModuleVisible('knowledge-management')">Embedding 沿用知识库配置。</span></a-alert><a-button class="gc-space-top" @click="router.push('/llm-configs')">打开模型配置</a-button>
+              <div class="gc-two-col gc-space-top"><a-form-item v-for="stage in stages" :key="stage.key" :label="stage.label"><a-select v-model="configDraft.stages[stage.key]" :disabled="!canConfigure||busy" allow-clear :placeholder="stage.placeholder" :options="stage.key === 'vision' ? visionModelOptions : modelOptions" /></a-form-item></div>
+              <a-collapse><a-collapse-item v-for="prompt in prompts" :key="prompt.key" :header="prompt.label"><a-textarea v-model="configDraft.prompts[prompt.key]" :disabled="!canConfigure||busy" :auto-size="{minRows:4,maxRows:12}" :max-length="10000" /></a-collapse-item><a-collapse-item key="rules" :header="`校验规则 · ${configDraft.rules.length} 条`"><p>支持必填、枚举、正则匹配、正则排除、长度和数量六类规则。错误阻止入库，建议允许入库。结构必填项始终生效。</p><a-table :data="configDraft.rules" :pagination="false" row-key="id"><template #columns><a-table-column title="启用" :width="70"><template #cell="{record}"><a-switch v-model="record.enabled" size="small" :disabled="!canConfigure||busy" /></template></a-table-column><a-table-column title="字段" data-index="field" /><a-table-column title="类型" data-index="type" /><a-table-column title="级别" :width="120"><template #cell="{record}"><a-select v-model="record.level" :disabled="!canConfigure||busy" :options="[{label:'错误',value:'error'},{label:'建议',value:'warn'}]" /></template></a-table-column><a-table-column title="提示" data-index="message" /></template></a-table><a-button class="gc-space-top" :disabled="!canConfigure||busy" @click="openRulesEditor">编辑规则定义 / 添加规则</a-button></a-collapse-item></a-collapse>
+
+            </div>
+
+      <template #footer><span class="gc-settings-hint">按项目保存，仅对新任务生效。取消不会提交修改。</span><a-button :disabled="busy" @click="closeSettings">取消</a-button><a-button type="primary" :disabled="!canConfigure" :loading="busy" @click="saveSettings">保存配置</a-button></template>
+    </a-modal>
+    <a-drawer v-model:visible="editorVisible" width="min(680px, 100vw)" :title="job?.status === 'saved' ? '正式用例详情' : '编辑草稿用例'" :footer="job?.status !== 'saved'" @ok="applyEdit">
+      <a-space v-if="job?.status==='draft'" wrap class="gc-space-bottom"><a-button :disabled="!editHistory.canUndo.value" @click="editHistory.undo">撤销编辑</a-button><a-button :disabled="!editHistory.canRedo.value" @click="editHistory.redo">重做编辑</a-button><a-button @click="resetEditing">重置本次编辑</a-button></a-space>
       <a-form v-if="editing" layout="vertical" :disabled="job?.status === 'saved'">
         <a-alert v-if="editing.source_references?.length" class="gc-space-bottom"><strong>原文依据</strong><p v-for="(source,index) in editing.source_references" :key="index">{{ source.document }}<span v-if="source.pages?.length"> · 第 {{ source.pages.join('、') }} 页</span><span v-if="source.source_case_id"> · 原用例 {{ source.source_case_id }}</span> · {{ source.unit_id }}</p></a-alert>
         <a-form-item label="源编号"><a-input v-model="editing.tc_sno" disabled /></a-form-item><a-form-item label="名称"><a-input v-model="editing.tc_name" :max-length="255" /></a-form-item><a-form-item label="模块路径（/ 分隔，最多 5 层）"><a-input v-model="editing.module_path" /></a-form-item>
@@ -115,51 +136,100 @@
       </a-form>
       <a-alert v-if="job?.status === 'saved'">正式用例请在用例管理中编辑。导出会读取最新的正式用例内容。</a-alert>
     </a-drawer>
-    <a-modal v-model:visible="rulesVisible" title="规则定义" :width="820" @ok="applyRules"><a-textarea v-model="rulesJson" :auto-size="{minRows:16,maxRows:25}" :disabled="!canConfigure" /><p>JSON 数组；保留唯一 id，设置 field、type、value、level、enabled、message。</p></a-modal>
+    <a-modal v-model:visible="rulesVisible" title="规则定义" width="min(820px, 94vw)" :mask-closable="false" :on-before-ok="applyRules"><a-textarea v-model="rulesJson" :auto-size="{minRows:16,maxRows:25}" :disabled="!canConfigure" /><p>JSON 数组；保留唯一 id，设置 field、type、value、level、enabled、message。</p></a-modal>
+    <DocumentPicker v-model:visible="documentsVisible" :files="docs" :ids="documentIds" :documents="documents" :max-count="limits.documents" :max-file-bytes="limits.document_bytes" :max-upload-bytes="limits.upload_bytes" :other-upload-bytes="images.reduce((sum,f)=>sum+f.size,0)" @apply="applyDocuments" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { isModuleVisible } from '@/config/moduleVisibility';
+import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { useProjectStore } from '@/store/projectStore'
 import request from '@/utils/request'
+import GroundingPanel, {type GroundCase,type GroundStep,type Coverage} from '@/components/testcase/GroundingPanel.vue'
+import SourceExtractionPanel, {type SourceExtraction} from '@/components/testcase/SourceExtractionPanel.vue'
+import ImageControlPanel, {type ControlImage,type ControlPayload} from '@/components/testcase/ImageControlPanel.vue'
+import { useLocalHistory } from '@/composables/useLocalHistory'
+import DocumentPicker, {type ExistingDocument} from '@/components/testcase/DocumentPicker.vue'
 
-interface Step { seq:number; desc:string; expected:string; action:string; target:string; value:string; locator:string; [key:string]:unknown }
-interface Case { tc_sno:string; tc_name:string; module_path:string; level:string; priority:string; test_type:string; judge_type:string; data_type:string; objective:string; automation:string; precondition:string; summary:string; sub_objective:string; remark:string; tags:string[]; source_images:string[]; source_references?:{unit_id:string;document:string;pages:number[];source_case_id:string}[]; steps:Step[]; [key:string]:unknown }
+interface Step extends GroundStep { seq:number; desc:string; expected:string; action:string; target:string; value:string; locator:string; [key:string]:unknown }
+interface Case extends GroundCase { tc_sno:string; tc_name:string; module_path:string; level:string; priority:string; test_type:string; judge_type:string; data_type:string; objective:string; automation:string; precondition:string; summary:string; sub_objective:string; remark:string; tags:string[]; source_images:string[]; source_references?:{unit_id:string;document:string;pages:number[];source_case_id:string}[]; steps:Step[]; [key:string]:unknown }
 interface Rule { id:string; field:string; type:string; value:unknown; level:string; enabled:boolean; message:string; [key:string]:unknown }
-interface Issues {errors:number; warnings:number; duplicates:number[]; detail:{case:string;issues:{level:string;message:string}[]}[]}
-interface JobProgress {phase:string;batch_total:number;batch_done:number;resumable:boolean;last_error?:string;vision?:{image_total:number;image_done:number;batch_total:number;batch_done:number};modules:{id:string;path:string;description:string;batch_total:number;batch_done:number;case_count:number}[];coverage?:{assigned_units:number;cited_units:number}}
-interface Job {id:string;title:string;status:string;stage:string;revision:number;cases:Case[];issues:Issues;notes:string[];saved_ids:number[];count:number;created_at:string;input?:{document_ids?:string[];text?:string};images?:{name:string}[];progress?:JobProgress}
+interface Issues {confirmation_required?:{tc_sno:string;reasons:string[]}[];errors:number; warnings:number; duplicates:number[]; detail:{case:string;issues:{level:string;message:string}[]}[]}
+interface JobProgress {phase:string;batch_total:number;batch_done:number;resumable:boolean;last_error?:string;source_extraction?:SourceExtraction;vision?:{image_total:number;image_done:number;batch_total:number;batch_done:number};modules:{id:string;path:string;description:string;batch_total:number;batch_done:number;case_count:number}[];coverage?:{assigned_units:number;cited_units:number;evidence?:Coverage}}
+interface Job {id:string;title:string;status:string;stage:string;revision:number;cases:Case[];issues:Issues;notes:string[];saved_ids:number[];count:number;created_at:string;input?:{document_ids?:string[];text?:string};images?:{name:string;url:string}[];control_images?:ControlImage[];progress?:JobProgress;generation_profile?:string}
+interface JobProgress {model_usage?:{calls:number;seconds:number};generation_profile_label?:string}
 interface Model {id:number;config_name:string;supports_vision:boolean;is_active:boolean}
 interface Config {rules:Rule[];prompts:Record<string,string>;stages:Record<string,number|undefined>}
 interface UploadLimits {text_chars:number;context_chars:number;documents:number;document_bytes:number;images:number;image_bytes:number;upload_bytes:number;vision_batch_size:number}
-interface Boot {settings:Config;models:Model[];documents:{id:string;title:string}[];knowledge_bases:{id:string;name:string}[];jobs:Job[];can_configure:boolean;limits:UploadLimits}
-const router = useRouter(), projectStore = useProjectStore(), projectId = computed(() => projectStore.currentProjectId)
+interface Boot {settings:Config;models:Model[];documents:ExistingDocument[];knowledge_bases:{id:string;name:string}[];jobs:Job[];can_configure:boolean;limits:UploadLimits}
+const router = useRouter(), route = useRoute(), projectStore = useProjectStore(), projectId = computed(() => projectStore.currentProjectId)
 const tab=ref('input'), error=ref(''), busy=ref(false), title=ref(''), requirement=ref(''), documentIds=ref<string[]>([]), docs=ref<File[]>([]), images=ref<File[]>([])
 const textModelId=ref<number>(), visionModelId=ref<number>(), knowledgeBaseId=ref<string>(), includeDocumentImages=ref(false)
+const generationProfile=ref('workflow')
+const documentsVisible=ref(false)
+const documentCount=computed(()=>docs.value.length+documentIds.value.length)
+const hasGenerationInput=computed(()=>!!requirement.value.trim()||documentCount.value>0||images.value.length>0)
+const withDocumentImages=computed(()=>includeDocumentImages.value&&documentCount.value>0)
+watch(projectId,()=>{documentsVisible.value=false})
 const models=ref<Model[]>([]), documents=ref<Boot['documents']>([]), knowledgeBases=ref<Boot['knowledge_bases']>([]), jobs=ref<Job[]>([]), job=ref<Job>(), config=ref<Config>({rules:[],prompts:{},stages:{}}), canConfigure=ref(false)
 const caseSearch=ref(''), dirty=ref(false), editing=ref<Case>(), editorVisible=ref(false), rulesVisible=ref(false), rulesJson=ref('')
+const settingsVisible=ref(false),configDraft=ref<Config>({rules:[],prompts:{},stages:{}})
+const configHistory=useLocalHistory(configDraft),editHistory=useLocalHistory(editing)
+const settingsDirty=computed(()=>JSON.stringify(configDraft.value)!==JSON.stringify(config.value))
+const resultHeading=ref<HTMLElement>()
+const activeJourney=computed(()=>journey.findIndex(item=>item.tab===tab.value))
+async function goJourney(index:number){tab.value=journey[index]!.tab;await nextTick();if(index===1)resultHeading.value?.scrollIntoView({behavior:'smooth',block:'start'})}
+const caseDraft=computed({get:()=>job.value?.cases||[],set:(value:Case[])=>{if(job.value)job.value.cases=value}})
+const caseHistory=useLocalHistory(caseDraft),savedCases=ref('[]')
+watch(()=>[job.value?.id,job.value?.revision],()=>{savedCases.value=JSON.stringify(job.value?.cases||[]);caseHistory.reset(JSON.parse(savedCases.value));dirty.value=false},{flush:'sync'})
+watch(caseDraft,value=>{dirty.value=JSON.stringify(value)!==savedCases.value},{deep:true,flush:'sync'})
+const reviewSection=ref('cases'),controlsDirty=ref(false),reviewAnchor=ref<HTMLElement>(),groundingPanel=ref<InstanceType<typeof GroundingPanel>>()
+onBeforeRouteLeave(()=>{if(controlsDirty.value||dirty.value||settingsVisible.value&&settingsDirty.value){Message.warning('有未保存修改，请先保存或取消修改');return false}})
+function protectControlEdits(event:BeforeUnloadEvent){if(controlsDirty.value||dirty.value||settingsVisible.value&&settingsDirty.value){event.preventDefault();event.returnValue=''}}
+window.addEventListener('beforeunload',protectControlEdits)
+const controlCount=computed(()=>job.value?.control_images?.reduce((n,p)=>n+p.controls.filter(c=>!c.excluded).length,0)||0)
+const pendingCases=computed(()=>job.value?.cases.filter(c=>c.confirmation_reasons?.length).length||0)
+async function showReview(section:string){reviewSection.value=section;await nextTick();if(section!=='controls')groundingPanel.value?.show(section);reviewAnchor.value?.scrollIntoView({behavior:'smooth',block:'start'})}
+watch(()=>[job.value?.id,job.value?.status],()=>{if(job.value?.status==='awaiting_controls')reviewSection.value='controls';else if(!job.value?.images?.length)reviewSection.value='cases'})
 const imagePreviews=ref<{name:string;url:string}[]>([])
+type FileSelection={docs:File[];images:File[];ids:string[]}
+const filePast=ref<FileSelection[]>([]),fileFuture=ref<FileSelection[]>([])
+function fileSelection():FileSelection{return {docs:[...docs.value],images:[...images.value],ids:[...documentIds.value]}}
+function rememberFiles(){filePast.value.push(fileSelection());if(filePast.value.length>20)filePast.value.shift();fileFuture.value=[]}
+function restoreFileSelection(redo:boolean){
+  const from=redo?fileFuture:filePast,to=redo?filePast:fileFuture,next=from.value[from.value.length-1]
+  if(!next||busy.value)return
+  if(next.docs.length+next.ids.length>limits.value.documents){Message.warning('恢复后的文档数量超过上限');return}
+  to.value.push(fileSelection());from.value.pop();clearImages();docs.value=[...next.docs];images.value=[...next.images];documentIds.value=[...next.ids]
+  imagePreviews.value=images.value.map(f=>({name:f.name,url:URL.createObjectURL(f)}));fileError.value=''
+}
+function removeDocs(index?:number){rememberFiles();if(index===undefined)docs.value=[];else docs.value.splice(index,1)}
+function applyDocuments(files:File[],ids:string[]){if(busy.value)return;if(files.map(fileKey).join('|')===docs.value.map(fileKey).join('|')&&ids.join('|')===documentIds.value.join('|'))return;rememberFiles();docs.value=files;documentIds.value=ids;fileError.value=''}
+function removeExistingDocument(id:string){rememberFiles();documentIds.value=documentIds.value.filter(value=>value!==id)}
+function clearDocuments(){rememberFiles();docs.value=[];documentIds.value=[];fileError.value=''}
+function clearSelectedImages(){rememberFiles();clearImages()}
 const MB=1024*1024
 const limits=ref<UploadLimits>({text_chars:100000,context_chars:300000,documents:20,document_bytes:20*MB,images:50,image_bytes:8*MB,upload_bytes:80*MB,vision_batch_size:6})
-const docPicker=ref<HTMLInputElement>(), imagePicker=ref<HTMLInputElement>(), fileError=ref(''), dragging=ref('')
+const imageLimit=computed(()=>generationProfile.value==='scenario'?Math.min(6,limits.value.images):limits.value.images)
+const imageLimitExceeded=computed(()=>images.value.length>imageLimit.value)
+const imagePicker=ref<HTMLInputElement>(), fileError=ref(''), dragging=ref('')
 const uploadBytes=computed(()=>[...docs.value,...images.value].reduce((sum,f)=>sum+f.size,0))
 const fileKey=(f:File)=>`${f.name}:${f.size}:${f.lastModified}`
 const formatSize=(bytes:number)=>bytes>=MB?`${(bytes/MB).toFixed(1)} MB`:`${Math.ceil(bytes/1024)} KB`
-const journey=[{title:'准备素材',desc:'需求文字、文档与截图',tab:'input'},{title:'生成与校验',desc:'模型生成 · 规则检查',tab:'draft'},{title:'评审与入库',desc:'编辑草稿 · 确认保存',tab:'draft'},{title:'沉淀与复用',desc:'生成记录 · 多格式导出',tab:'history'}]
-const stages=[{key:'vision',label:'图片解析',placeholder:'沿用当前激活的视觉模型'},{key:'text',label:'文字生成',placeholder:'沿用当前激活模型'},{key:'validate',label:'AI 评审（可选）',placeholder:'关闭，仅执行规则检查'},{key:'automation',label:'自动化建议（可选）',placeholder:'关闭，直接配置自动化执行器'}]
+const journey=[{title:'准备素材',desc:'需求文字、文档与截图',tab:'input'},{title:'生成、评审与入库',desc:'控件核对 · 用例生成 · 评审入库',tab:'draft'},{title:'沉淀与复用',desc:'生成记录 · 多格式导出',tab:'history'}]
+const stages=[{key:'vision',label:'图片解析',placeholder:'沿用当前激活的视觉模型'},{key:'text',label:'文字生成',placeholder:'沿用当前激活模型'},{key:'validate',label:'依据评审',placeholder:'自动选择生成模型；图片任务使用视觉模型'},{key:'automation',label:'自动化建议（可选）',placeholder:'关闭，直接配置自动化执行器'}]
 const prompts=[{key:'vision',label:'图片解析提示词'},{key:'vision_page',label:'逐页图片分析提示词'},{key:'text',label:'用例生成提示词'},{key:'validate',label:'AI 评审提示词'},{key:'automation',label:'自动化建议提示词'}]
 const actions=['navigate','click','input','select','check','upload','hover','wait','assert','screenshot']
 const testTypes=[{label:'功能',value:'functional'},{label:'冒烟',value:'smoke'},{label:'边界',value:'boundary'},{label:'异常',value:'exception'},{label:'权限',value:'permission'},{label:'安全',value:'security'},{label:'兼容',value:'compatibility'}]
 const modelOptions=computed(()=>models.value.map(m=>({label:m.config_name+(m.is_active?' · 当前激活':''),value:m.id})))
 const visionModelOptions=computed(()=>modelOptions.value.filter(m=>models.value.find(x=>x.id===m.value)?.supports_vision))
-const documentOptions=computed(()=>documents.value.map(d=>({label:d.title,value:d.id})))
 const knowledgeOptions=computed(()=>knowledgeBases.value.map(k=>({label:k.name,value:k.id})))
 const running=computed(()=>['queued','running'].includes(job.value?.status||''))
 const filteredCases=computed(()=>job.value?.cases.filter(c=>!caseSearch.value||`${c.tc_name} ${c.module_path}`.includes(caseSearch.value))||[])
-const statusLabel=(s:string)=>({queued:'排队中',running:'处理中',draft:'待确认',saved:'已入库',failed:'失败',cancelled:'已取消'}[s]||s)
+const statusLabel=(s:string)=>({queued:'排队中',running:'处理中',awaiting_controls:'待核对控件',draft:'待确认',saved:'已入库',failed:'失败',cancelled:'已取消'}[s]||s)
 const statusColor=(s:string)=>({draft:'blue',saved:'green',failed:'red',running:'orange'}[s]||'gray')
 const endpoint=(suffix='',pid=projectId.value)=>`/projects/${pid}/workbench/${suffix}`
 const clone=<T,>(value:T):T=>JSON.parse(JSON.stringify(value))
@@ -169,6 +239,7 @@ async function boot(){const pid=projectId.value;if(!pid)return;const data=await 
 function addFiles(files:File[], kind:'docs'|'images'){
   if(busy.value)return
   const list=kind==='docs'?docs.value:images.value, problems:string[]=[]
+  let remembered=false
   let duplicateCount=0
   for(const f of files){
     if(list.some(existing=>fileKey(existing)===fileKey(f))){duplicateCount++;continue}
@@ -177,9 +248,10 @@ function addFiles(files:File[], kind:'docs'|'images'){
     if(!f.size){problems.push(`${f.name}：文件为空`);continue}
     const maxBytes=kind==='docs'?limits.value.document_bytes:limits.value.image_bytes
     if(f.size>maxBytes){problems.push(`${f.name}：单个文件不能超过 ${maxBytes/MB} MB`);continue}
-    const count=list.length+(kind==='docs'?documentIds.value.length:0), maxCount=kind==='docs'?limits.value.documents:limits.value.images
+    const count=list.length+(kind==='docs'?documentIds.value.length:0), maxCount=kind==='docs'?limits.value.documents:imageLimit.value
     if(count>=maxCount){problems.push(`${f.name}：最多选择 ${maxCount} ${kind==='docs'?'份文档（含已有文档）':'张图片'}`);continue}
     if(uploadBytes.value+f.size>limits.value.upload_bytes){problems.push(`${f.name}：待上传文件合计不能超过 ${limits.value.upload_bytes/MB} MB`);continue}
+    if(!remembered){rememberFiles();remembered=true}
     list.push(f)
     if(kind==='images')imagePreviews.value.push({name:f.name,url:URL.createObjectURL(f)})
   }
@@ -188,58 +260,84 @@ function addFiles(files:File[], kind:'docs'|'images'){
 }
 function pickFiles(e:Event,kind:'docs'|'images'){const input=e.target as HTMLInputElement;addFiles(Array.from(input.files||[]),kind);input.value=''}
 function dropFiles(e:DragEvent,kind:'docs'|'images'){dragging.value='';addFiles(Array.from(e.dataTransfer?.files||[]),kind)}
-function removeImage(index:number){const preview=imagePreviews.value[index];if(preview)URL.revokeObjectURL(preview.url);images.value.splice(index,1);imagePreviews.value.splice(index,1)}
+function removeImage(index:number){rememberFiles();const preview=imagePreviews.value[index];if(preview)URL.revokeObjectURL(preview.url);images.value.splice(index,1);imagePreviews.value.splice(index,1)}
 function clearImages(){imagePreviews.value.forEach(p=>URL.revokeObjectURL(p.url));images.value=[];imagePreviews.value=[]}
 function restoreMaterials(){
   if(!job.value)return
   title.value=['图文生成用例','待 AI 命名的用例任务'].includes(job.value.title)?'':job.value.title
   requirement.value=job.value.input?.text||'';documentIds.value=[...(job.value.input?.document_ids||[])];docs.value=[]
+  generationProfile.value=job.value.generation_profile||'detailed'
   clearImages();includeDocumentImages.value=false
   if(job.value.images?.length)Message.info('已恢复文档与说明；如需继续使用图片，请重新选择图片或开启内嵌图片分析。')
   tab.value='input';error.value='';fileError.value=''
 }
-function startNew(){job.value=undefined;dirty.value=false;caseSearch.value='';tab.value='input';error.value=''}
+function startNew(){if(dirty.value){Message.warning('请先保存或放弃草稿修改');return}if(controlsDirty.value){Message.warning('请先在图片控件中保存核对进度，再新建任务');return}job.value=undefined;dirty.value=false;caseSearch.value='';tab.value='input';error.value=''}
+async function saveControls(images:ControlPayload[],proceed:boolean){await guarded(async()=>{if(!job.value)return;const pid=projectId.value,jid=job.value.id;const result=await api<Job>(`jobs/${jid}/${proceed?'continue-controls':'controls'}/`,{revision:job.value.revision,images},pid);if(pid!==projectId.value||job.value?.id!==jid)return;job.value=result;controlsDirty.value=false;if(proceed)reviewSection.value='cases';await boot();Message.success(proceed?'已提交，将按核对后的控件继续生成':'控件核对进度已保存')})}
 function fillExample(){title.value='登录与权限验收';requirement.value='被测系统：本地 SGUI，http://127.0.0.1:8778/login。\nR1：打开登录页后直接显示用户名和密码输入框及“进入工作台”按钮。\nR2：正确账号与密码可登录，进入工作台。\nR3：错误密码应显示失败提示，不创建登录状态。\nR4：用户名或密码为空时阻止提交并提示必填。\nR5：退出登录后访问需要认证的页面应跳转登录页。\n请生成 5 条测试用例，覆盖以上规则。测试数据使用占位名称，不包含真实密码。'}
 async function generate(){await guarded(async()=>{
-  if(!requirement.value.trim()&&!docs.value.length&&!documentIds.value.length&&!images.value.length)throw new Error('请上传需求文档、引用已有文档，或输入需求说明。图片也可单独作为材料。')
+  if(controlsDirty.value||dirty.value)throw new Error('请先保存或放弃当前未保存修改，再生成新任务。')
+  if(!hasGenerationInput.value)throw new Error('请上传需求文档、选用已有文档、上传图片或填写需求说明，至少提供一种。')
   if(docs.value.length+documentIds.value.length>limits.value.documents)throw new Error(`本次最多关联 ${limits.value.documents} 份文档，请移除部分文件或已有文档。`)
-  if(images.value.length>limits.value.images)throw new Error(`本次最多上传 ${limits.value.images} 张图片，请移除部分图片。`)
+  if(imageLimitExceeded.value)throw new Error(`当前生成方式最多上传 ${imageLimit.value} 张图片，请移除部分图片或切换生成方式。`)
   if(uploadBytes.value>limits.value.upload_bytes)throw new Error(`本次上传文件合计不能超过 ${limits.value.upload_bytes/MB} MB。`)
   const pid=projectId.value, form=new FormData()
-  form.append('title',title.value.trim());form.append('text',requirement.value.trim());form.append('document_ids',JSON.stringify(documentIds.value));form.append('include_document_images',String(includeDocumentImages.value))
+  form.append('generation_profile',generationProfile.value)
+  form.append('title',title.value.trim());form.append('text',requirement.value.trim());form.append('document_ids',JSON.stringify(documentIds.value));form.append('include_document_images',String(withDocumentImages.value))
   if(textModelId.value)form.append('text_model_id',String(textModelId.value));if(visionModelId.value)form.append('vision_model_id',String(visionModelId.value));if(knowledgeBaseId.value)form.append('knowledge_base_id',knowledgeBaseId.value)
   docs.value.forEach(f=>form.append('docs',f));images.value.forEach(f=>form.append('images',f))
   const result=await api<Job>('generate/',form,pid);if(pid!==projectId.value)return
   job.value=result;dirty.value=false;tab.value='draft'
   if(result.input?.document_ids){documentIds.value=result.input.document_ids;docs.value=[]}
+  filePast.value=[];fileFuture.value=[]
   await boot()
 })}
-async function openJob(id:string){await guarded(async()=>{const pid=projectId.value;const data=await api<Job>(`jobs/${id}/`,undefined,pid);if(pid!==projectId.value)return;job.value=data;dirty.value=false;tab.value='draft'})}
-async function loadPreset(){await guarded(async()=>{const pid=projectId.value;const result=await api<Job>('preset/',{},pid);if(pid!==projectId.value)return;job.value=result;dirty.value=false;tab.value='draft';await boot()})}
-async function importJson(e:Event){const input=e.target as HTMLInputElement;const file=input.files?.[0];if(!file)return;await guarded(async()=>{if(file.size>10*1024*1024)throw new Error('JSON 文件最多 10 MB');const pid=projectId.value;const result=await api<Job>('import/',{payload:JSON.parse(await file.text()),title:file.name},pid);if(pid!==projectId.value)return;job.value=result;dirty.value=false;tab.value='draft';await boot()});input.value=''}
+async function openJob(id:string){if(dirty.value){Message.warning('请先保存或放弃草稿修改');return}if(controlsDirty.value){Message.warning('请先保存图片控件的核对进度');return}await guarded(async()=>{const pid=projectId.value;const data=await api<Job>(`jobs/${id}/`,undefined,pid);if(pid!==projectId.value)return;job.value=data;dirty.value=false;tab.value='draft';reviewSection.value=data.status==='awaiting_controls'?'controls':'cases'})}
+async function loadPreset(){await guarded(async()=>{if(controlsDirty.value||dirty.value)throw new Error('请先保存或放弃当前未保存修改');const pid=projectId.value;const result=await api<Job>('preset/',{},pid);if(pid!==projectId.value)return;job.value=result;dirty.value=false;tab.value='draft';await boot()})}
+async function importJson(e:Event){const input=e.target as HTMLInputElement;const file=input.files?.[0];if(!file)return;await guarded(async()=>{if(controlsDirty.value||dirty.value)throw new Error('请先保存或放弃当前未保存修改');if(file.size>10*1024*1024)throw new Error('JSON 文件最多 10 MB');const pid=projectId.value;const result=await api<Job>('import/',{payload:JSON.parse(await file.text()),title:file.name},pid);if(pid!==projectId.value)return;job.value=result;dirty.value=false;tab.value='draft';await boot()});input.value=''}
 async function persistDraft(){if(!job.value||job.value.status!=='draft')return;const pid=projectId.value,id=job.value.id;const result=await api<Job>(`jobs/${id}/draft/`,{cases:job.value.cases,revision:job.value.revision},pid);if(pid!==projectId.value||id!==job.value?.id)return;job.value=result;dirty.value=false}
 async function saveDraft(){await guarded(async()=>{await persistDraft();Message.success('草稿已保存并完成规则校验')})}
-async function commit(){await guarded(async()=>{const originalProject=projectId.value,originalJob=job.value?.id;await persistDraft();if(!job.value||projectId.value!==originalProject||job.value.id!==originalJob)return;if(job.value.issues.errors)throw new Error('请先修正规则错误，可点击“查看规则问题”定位。');const pid=projectId.value,id=job.value.id;const result=await api<Job>(`jobs/${id}/commit/`,{revision:job.value.revision},pid);if(pid!==projectId.value)return;job.value=result;await boot();Message.success('已存入 SGUI 用例管理')})}
+async function reviewBasis(ids:string[],operation:'confirm-cases'|'revoke-confirmations',note=''){await guarded(async()=>{
+  if(dirty.value)throw new Error('请先保存或放弃草稿修改，再确认当前版本。')
+  if(!job.value||!ids.length)return
+  const pid=projectId.value,jid=job.value.id,case_fingerprints=Object.fromEntries(ids.map(id=>[id,job.value?.cases.find(c=>c.tc_sno===id)?.review_fingerprint]))
+  const result=await api<Job>(`jobs/${jid}/${operation}/`,{tc_snos:ids,note,case_fingerprints,revision:job.value.revision},pid)
+  if(pid!==projectId.value||jid!==job.value?.id)return
+  job.value=result
+  if(operation==='confirm-cases'){groundingPanel.value?.confirmationSaved(ids);Message.success(`已确认 ${ids.length} 条，可在“人工确认记录”中撤回`)}
+  else Message.success(`已撤回 ${ids.length} 条确认，已重新检查依据问题`)
+})}
+async function confirmBasis(ids:string[],note:string){await reviewBasis(ids,'confirm-cases',note)}
+async function revokeBasis(ids:string[]){await reviewBasis(ids,'revoke-confirmations')}
+async function commit(){await guarded(async()=>{const originalProject=projectId.value,originalJob=job.value?.id;await persistDraft();if(!job.value||projectId.value!==originalProject||job.value.id!==originalJob)return;if(job.value.issues.confirmation_required?.length)throw new Error('请先点击用例结果上方的“待确认问题”处理依据问题。');if(job.value.issues.errors)throw new Error('请先修正规则错误，可点击“查看规则问题”定位。');const pid=projectId.value,id=job.value.id;const result=await api<Job>(`jobs/${id}/commit/`,{revision:job.value.revision},pid);if(pid!==projectId.value)return;job.value=result;await boot();Message.success('已存入 SGUI 用例管理')})}
 async function cancelJob(){await guarded(async()=>{if(!job.value)return;const pid=projectId.value,id=job.value.id;const result=await api<Job>(`jobs/${id}/cancel/`,{},pid);if(pid===projectId.value&&id===job.value?.id)job.value=result})}
 async function resumeJob(){await guarded(async()=>{if(!job.value)return;const pid=projectId.value,id=job.value.id;const result=await api<Job>(`jobs/${id}/resume/`,{},pid);if(pid===projectId.value&&id===job.value?.id){job.value=result;await boot();Message.success('已提交，将复用已完成进度')}})}
 async function download(value:string|number|Record<string,unknown>|undefined){await guarded(async()=>{if(dirty.value)await persistDraft();if(!job.value)return;const fmt=String(value);const response=await request.get(endpoint(`jobs/${job.value.id}/export/?file_type=${fmt}`),{responseType:'blob'});const url=URL.createObjectURL(response.data.data);const a=document.createElement('a');a.href=url;a.download=`cases-${job.value.id.slice(0,8)}.${fmt}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)})}
-function editCase(id:string){const c=job.value?.cases.find(c=>c.tc_sno===id);if(c){editing.value=clone(c);editorVisible.value=true}}
+function editCase(id:string){const c=job.value?.cases.find(c=>c.tc_sno===id);if(c){editHistory.reset(clone(c));editorVisible.value=true}}
 function syncPriority(){if(editing.value)editing.value.priority=({P0:'高',P1:'中',P2:'低',P3:'低'} as Record<string,string>)[editing.value.level]||'中'}
 function applyEdit(){if(!job.value||!editing.value||job.value.status!=='draft')return;const index=job.value.cases.findIndex(c=>c.tc_sno===editing.value?.tc_sno);editing.value.steps.forEach((s,i)=>s.seq=i+1);job.value.cases[index]=clone(editing.value);dirty.value=true;editorVisible.value=false}
-function openRulesEditor(){rulesJson.value=JSON.stringify(config.value.rules,null,2);rulesVisible.value=true}
-function applyRules(){try{const rules=JSON.parse(rulesJson.value);if(!Array.isArray(rules))throw new Error();config.value.rules=rules;Message.info('规则定义已修改，请保存工作台设置')}catch{error.value='规则 JSON 格式错误，请重新编辑。'}}
-async function saveSettings(){await guarded(async()=>{await api('settings/',config.value);Message.success('工作台设置已保存')})}
+function openSettings(){configHistory.reset(clone(config.value));settingsVisible.value=true}
+function resetSettings(){configHistory.reset(clone(config.value))}
+function closeSettings(){if(busy.value)return false;settingsVisible.value=false;rulesVisible.value=false;resetSettings();return true}
+function openRulesEditor(){rulesJson.value=JSON.stringify(configDraft.value.rules,null,2);rulesVisible.value=true}
+function applyRules(){if(!canConfigure.value)return false;try{const rules=JSON.parse(rulesJson.value);if(!Array.isArray(rules))throw new Error();configDraft.value.rules=rules;Message.info('规则定义已暂存，保存配置后生效');return true}catch{Message.error('规则 JSON 格式错误，请重新编辑。');return false}}
+async function saveSettings(){await guarded(async()=>{const pid=projectId.value;const next=clone(configDraft.value);await api('settings/',next,pid);if(pid!==projectId.value)return;config.value=next;configHistory.reset(clone(next));settingsVisible.value=false;Message.success('工作台设置已保存')})}
+function resetEditing(){const original=job.value?.cases.find(c=>c.tc_sno===editing.value?.tc_sno);if(original)editHistory.reset(clone(original))}
+function deleteCase(id:string){if(job.value?.status!=='draft'||busy.value)return;if(caseDraft.value.length<=1){Message.info('草稿至少保留一条用例；不需要本任务时可返回生成记录');return}caseDraft.value=caseDraft.value.filter(c=>c.tc_sno!==id)}
+function discardCases(){caseHistory.reset(JSON.parse(savedCases.value));dirty.value=false}
 let poll:ReturnType<typeof setTimeout>|undefined, disposed=false
 async function pollJob(){if(disposed)return;try{const pid=projectId.value,id=job.value?.id;if(running.value&&id){const next=await api<Job>(`jobs/${id}/`,undefined,pid);if(pid===projectId.value&&id===job.value?.id){job.value=next;jobs.value=jobs.value.map(item=>item.id===id?{...item,title:next.title,status:next.status,count:next.count}:item);if(!running.value)await boot()}}}catch(e){error.value=(e as {error?:string}).error||'任务状态暂时无法读取，稍后会重试'}finally{if(!disposed)poll=setTimeout(pollJob,2500)}}
-watch(projectId,()=>{job.value=undefined;dirty.value=false;documentIds.value=[];knowledgeBaseId.value=undefined;docs.value=[];images.value=[];imagePreviews.value.forEach(p=>URL.revokeObjectURL(p.url));imagePreviews.value=[];config.value={rules:[],prompts:{},stages:{}};models.value=[];documents.value=[];knowledgeBases.value=[];jobs.value=[];textModelId.value=undefined;visionModelId.value=undefined;void boot().catch(e=>{error.value=e.error||'项目数据加载失败'})},{immediate:true})
+watch(projectId,()=>{settingsVisible.value=false;rulesVisible.value=false;filePast.value=[];fileFuture.value=[];if(controlsDirty.value)Message.warning('切换项目时未保存的控件修改不会提交；原项目已保存的核对进度仍保留');controlsDirty.value=false;job.value=undefined;dirty.value=false;documentIds.value=[];knowledgeBaseId.value=undefined;docs.value=[];images.value=[];imagePreviews.value.forEach(p=>URL.revokeObjectURL(p.url));imagePreviews.value=[];config.value={rules:[],prompts:{},stages:{}};models.value=[];documents.value=[];knowledgeBases.value=[];jobs.value=[];textModelId.value=undefined;visionModelId.value=undefined;void boot().then(()=>{const jid=route.query.job;if(typeof jid==='string')void openJob(jid)}).catch(e=>{error.value=e.error||'项目数据加载失败'})},{immediate:true})
+watch(()=>route.query.job,jid=>{if(typeof jid==='string')void openJob(jid)})
 void pollJob()
-onUnmounted(()=>{disposed=true;clearTimeout(poll);imagePreviews.value.forEach(p=>URL.revokeObjectURL(p.url))})
+onUnmounted(()=>{disposed=true;clearTimeout(poll);window.removeEventListener('beforeunload',protectControlEdits);imagePreviews.value.forEach(p=>URL.revokeObjectURL(p.url))})
 </script>
 
 <style scoped>
+.gc-settings-body{max-height:60vh;overflow:auto;padding:4px 8px 4px 0}.gc-settings-hint{font-size:12px;color:var(--sgui-muted);margin-right:16px}.gc-settings-body .arco-form-item{min-width:0}
 
 .gc-workbench {height:100%;min-height:0;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;max-width:1760px;margin:0 auto;color:var(--sgui-text);text-align:left;padding:0 4px 12px 0}
 .gc-workbench:focus-visible {outline:2px solid var(--sgui-blue);outline-offset:-2px}
+.gc-review-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:18px 0}.gc-review-nav button{display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid var(--sgui-line);border-radius:10px;background:var(--sgui-surface);color:var(--sgui-text);text-align:left;cursor:pointer}.gc-review-nav button.active{border-color:var(--sgui-blue);background:var(--sgui-soft)}.gc-review-nav button:disabled{opacity:.5;cursor:default}.gc-review-nav small{color:var(--sgui-muted);font-size:11px}
 .gc-heading {display:flex;justify-content:space-between;gap:20px;align-items:center;margin:2px 0 24px}
 .gc-eyebrow {color:var(--sgui-muted);font-size:11px;letter-spacing:1.5px;font-weight:500}
 .gc-heading h1 {font-size:26px;line-height:1.5;margin:6px 0;font-weight:650;letter-spacing:-.5px}

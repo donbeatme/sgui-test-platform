@@ -28,7 +28,7 @@
             </div>
           </div>
 
-          <div class="overview-card">
+          <div v-if="isModuleVisible('ui-automation')" class="overview-card">
             <div class="overview-header">
               <icon-desktop class="overview-icon" />
               <span class="overview-title">{{ dashboardText.uiAutomationTitle }}</span>
@@ -41,7 +41,7 @@
             </div>
           </div>
 
-          <div class="overview-card">
+          <div v-if="isModuleVisible('api-testing')" class="overview-card">
             <div class="overview-header">
               <icon-code class="overview-icon" />
               <span class="overview-title">{{ dashboardText.apiTestingTitle }}</span>
@@ -105,7 +105,7 @@
           <!-- 中间：通过率环形图 -->
           <div class="panel rate-panel">
             <div class="panel-header">
-              <span class="panel-title">{{ dashboardText.passRateTitle }}</span>
+<span class="panel-title">{{ dashboardText.passRateTitle }}</span><small>通过次数 / 计划用例次数</small>
             </div>
             <div class="panel-body rate-body">
               <div class="rate-circle">
@@ -123,6 +123,8 @@
                 </div>
               </div>
               <div class="rate-legend">
+                <div class="legend-item"><span class="legend-label">阻塞</span><span class="legend-value">{{ statistics?.executions?.case_results?.blocked || 0 }}</span></div>
+                <div class="legend-item"><span class="legend-label">取消</span><span class="legend-value">{{ statistics?.executions?.case_results?.cancelled || 0 }}</span></div>
                 <div class="legend-item">
                   <span class="legend-dot passed"></span>
                   <span class="legend-label">{{ dashboardText.passed }}</span>
@@ -254,7 +256,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { isModuleVisible } from '@/config/moduleVisibility';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import {
   IconBarChart, IconFile, IconThunderbolt, IconApps, IconDesktop
@@ -325,7 +328,7 @@ const dashboardText = computed(() => (
         uiAutomationTitle: 'UI自动化',
         executions: '执行',
         success: '成功',
-        executionStatsTitle: '执行统计',
+        executionStatsTitle: '执行统计（含 AI）',
         passed: '通过',
         failed: '失败',
         caseReviewStatusTitle: '用例审核状态',
@@ -446,25 +449,32 @@ const changeTokenPeriod = (period: 'day' | 'week' | 'month') => {
   fetchTokenStats();
 };
 
-const fetchStatistics = async () => {
+let statisticsRequest = 0;
+let statisticsInFlight: number | null = null;
+const fetchStatistics = async (silent = false) => {
   if (!currentProjectId.value) return;
 
-  loading.value = true;
+  const requestedProject = currentProjectId.value;
+  if (silent && statisticsInFlight === requestedProject) return;
+  statisticsInFlight = requestedProject;
+  const requestId = ++statisticsRequest;
+  if (!silent) loading.value = true;
   try {
-    const response = await getProjectStatistics(currentProjectId.value);
+    const response = await getProjectStatistics(requestedProject);
+    if (requestedProject !== currentProjectId.value || requestId !== statisticsRequest) return;
     console.log('Statistics API response:', response);
     if (response.success && response.data) {
       statistics.value = response.data;
       console.log('Statistics data:', statistics.value);
     } else {
       console.error('Statistics API error:', response.error);
-      Message.error(response.error || dashboardText.value.fetchStatisticsFailed);
+      if (!silent) Message.error(response.error || dashboardText.value.fetchStatisticsFailed);
     }
   } catch (error) {
     console.error('获取统计数据出错:', error);
-    Message.error(dashboardText.value.fetchStatisticsError);
+    if (!silent) Message.error(dashboardText.value.fetchStatisticsError);
   } finally {
-    loading.value = false;
+    if (requestId === statisticsRequest) { loading.value = false; statisticsInFlight = null; }
   }
 };
 
@@ -476,7 +486,10 @@ watch(currentProjectId, () => {
   }
 });
 
+let statsTimer: ReturnType<typeof setInterval> | undefined;
+onUnmounted(() => { if (statsTimer) clearInterval(statsTimer); });
 onMounted(() => {
+  statsTimer = setInterval(() => { if (!document.hidden) void fetchStatistics(true); }, 10000);
   fetchTokenStats();
   if (currentProjectId.value) {
     fetchStatistics();
@@ -522,7 +535,7 @@ onMounted(() => {
 /* 顶部概览卡片 */
 .overview-section {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 10px;
 }
 

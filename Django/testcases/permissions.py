@@ -208,11 +208,11 @@ class IsProjectMemberForTestExecution(permissions.BasePermission):
             return True
 
         # TestExecution通过suite关联到project
-        if not hasattr(obj, "suite") or not hasattr(obj.suite, "project"):
+        if not obj.project_id:
             return False
 
         return ProjectMember.objects.filter(
-            project=obj.suite.project,
+            project_id=obj.project_id,
             user=request.user,
             role__in=["owner", "admin", "member"],
         ).exists()

@@ -3,6 +3,7 @@ from django_filters.rest_framework import (
     DjangoFilterBackend,
 )  # 导入 DjangoFilterBackend
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -83,6 +84,12 @@ class TestCaseViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id", "created_at", "updated_at"]
     ordering = ["-created_at"]
 
+    @action(detail=True, methods=['get'], url_path='execution-preflight')
+    @permission_required('testcases.view_testcase')
+    def execution_preflight(self, request, project_pk=None, pk=None):
+        from .preflight import execution_preflight
+        return Response(execution_preflight(self.get_object()))
+
     def _should_include_steps(self):
         value = self.request.query_params.get("include_steps")
         return str(value).lower() in {"1", "true", "yes"}
@@ -117,7 +124,11 @@ class TestCaseViewSet(viewsets.ModelViewSet):
             # 所以这里可以直接返回项目下的用例。列表接口默认不预取 steps，减少传输和查询开销；
             # 思维导图等场景可通过 include_steps=true/1/yes 显式获取步骤详情。
             qs = TestCase.objects.filter(project=project).select_related(
-                "creator", "module"
+                "creator", "module", "guicase_extension__job"
+            ).defer(
+                "guicase_extension__original",
+                *[f"guicase_extension__job__{field}" for field in
+                  ("input", "options", "cases", "issues", "progress", "notes", "saved_ids")]
             )
             if self.action != "list" or self._should_include_steps():
                 qs = qs.prefetch_related("steps")
@@ -605,7 +616,9 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                 )
 
                 if serializer.is_valid():
-                    screenshot = serializer.save()
+                    from .execution_tracking import screenshot_result
+                    run = screenshot_result(testcase, file.name, step_number)
+                    screenshot = serializer.save(execution_result=run)
                     created_screenshots.append(serializer.data)
                 else:
                     return Response(
@@ -621,6 +634,8 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED,
             )
 
+        except DRFValidationError as e:
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(
                 {"error": f"上传失败: {str(e)}"},
@@ -1017,10 +1032,13 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
     API 端点将嵌套在项目下，例如 /api/projects/{project_pk}/test-executions/
     """
 
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["suite__name"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'suite', 'source']
+    search_fields = ["suite__name", "name"]
+    pagination_class = StandardPagination
     ordering_fields = ["created_at", "started_at", "completed_at", "status"]
     ordering = ["-created_at"]
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_permissions(self):
         """返回此视图所需权限的实例列表"""
@@ -1038,7 +1056,7 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
         if project_pk:
             project = get_object_or_404(Project, pk=project_pk)
             return (
-                TestExecution.objects.filter(suite__project=project)
+                TestExecution.objects.filter(project=project)
                 .select_related("suite", "executor")
                 .prefetch_related("results")
             )
@@ -1078,12 +1096,15 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
             )
 
         # 创建执行记录
-        execution = TestExecution.objects.create(
-            suite=suite,
-            executor=request.user,
-            status="pending",
-            generate_playwright_script=generate_playwright_script,
-        )
+        from .execution_tracking import snapshot_case
+        with transaction.atomic():
+            cases = list(suite.testcases.order_by('level', 'id'))
+            execution = TestExecution.objects.create(
+                suite=suite, name=suite.name, executor=request.user, status="pending",
+                total_count=len(cases), generate_playwright_script=generate_playwright_script)
+            TestCaseResult.objects.bulk_create([
+                TestCaseResult(execution=execution, testcase=case, case_snapshot=snapshot_case(case))
+                for case in cases])
 
         # 使用transaction.on_commit()确保数据库事务提交后再启动Celery任务
         # Django和Celery在同一容器中运行,共享同一数据库连接,避免查询不到记录的问题
@@ -1116,12 +1137,15 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from .execution_tracking import cancel_execution
+        cancel_execution(execution.id)
+
         # 尝试撤销Celery任务
         if execution.celery_task_id:
             current_app.control.revoke(execution.celery_task_id, terminate=True)
 
         # 调用取消任务
-        cancel_test_execution.delay(execution.id)
+        # Cancellation is persisted synchronously before responding.
 
         return Response(
             {"message": "测试执行取消请求已发送"}, status=status.HTTP_200_OK
@@ -1146,10 +1170,11 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
 
         report_data = {
             "execution_id": execution.id,
+            "source": execution.source,
             "suite": {
-                "id": execution.suite.id,
-                "name": execution.suite.name,
-                "description": execution.suite.description,
+                "id": execution.suite_id,
+                "name": execution.display_name,
+                "description": execution.suite.description if execution.suite_id else ("Playwright 脚本直接执行" if execution.source == 'playwright_script' else "单条 AI 浏览器执行"),
             },
             "executor": {
                 "id": execution.executor.id,
@@ -1167,6 +1192,7 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
                 "failed": execution.failed_count,
                 "skipped": execution.skipped_count,
                 "error": execution.error_count,
+                "blocked": execution.blocked_count, "cancelled": execution.cancelled_count,
                 "pass_rate": execution.pass_rate,
             },
             "results": [],
@@ -1180,7 +1206,10 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
             report_data["results"].append(
                 {
                     "testcase_id": result.testcase.id,
-                    "testcase_name": result.testcase.name,
+                    "testcase_name": result.case_snapshot.get("name", result.testcase.name),
+                    "step_results": result.step_results, "case_snapshot": result.case_snapshot,
+                    "target_urls": result.target_urls, "model_info": result.model_info,
+                    "mcp_session_id": result.mcp_session_id,
                     "status": result.status,
                     "error_message": result.error_message,
                     "execution_time": result.execution_time,
@@ -1209,7 +1238,7 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
         # 记录删除信息用于日志
         execution_info = {
             "id": execution.id,
-            "suite_name": execution.suite.name,
+            "suite_name": execution.display_name,
             "status": execution.status,
             "created_at": execution.created_at,
         }

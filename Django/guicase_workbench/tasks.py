@@ -38,14 +38,15 @@ def resolve_model(options, stage, required=False):
     return config
 
 
-def invoke(config, prompt, content, timeout=180):
+def invoke(config, prompt, content, timeout=180, *, strict_timeout=False, max_tokens=12000):
     # Load the model client only in the process that actually invokes a model.
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_openai import ChatOpenAI
 
     # Reuse WHartTest server-side LLMConfig and OpenAI-compatible message convention.
     llm = ChatOpenAI(model=config.name, api_key=config.api_key, base_url=config.api_url,
-                    temperature=0.1, timeout=max(timeout, min(config.request_timeout, 600)), max_retries=0, max_tokens=12000)
+                    temperature=0.1, timeout=timeout if strict_timeout else max(timeout, min(config.request_timeout, 600)),
+                    max_retries=0, max_tokens=max_tokens)
     result = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=content)])
     if result.response_metadata.get('finish_reason') == 'length':
         raise ValidationError('模型输出达到长度限制，请减少当前业务范围或使用更大的输出容量。')

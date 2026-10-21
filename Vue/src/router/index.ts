@@ -88,6 +88,11 @@ const routes: Array<RouteRecordRaw> = [ // 声明路由表数组，类型约束�
         component: TestExecutionHistoryView, // 指定测试执行历史页面组件。
       },
       {
+        path: 'playwright-scripts',
+        name: 'PlaywrightScripts',
+        component: () => import('@/views/PlaywrightScriptsView.vue'),
+      },
+      {
         path: 'llm-configs', // 定义 LLM 配置管理子路径。
         name: 'LlmConfigManagement', // 定义 LLM 配置管理路由名称。
         component: LlmConfigManagementView, // 指定 LLM 配置管理页面组件。

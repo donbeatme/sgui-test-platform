@@ -26,6 +26,12 @@ def fixture(**extra):
 
 
 def ai_reply(config, prompt, content, **kwargs):
+    from .grounding import SOURCE_SCHEMA, REVIEW_SCHEMA, CASE_BASIS_SCHEMA
+    if SOURCE_SCHEMA in prompt:
+        return json.dumps({'units': [{'id': u['id'], 'facts': [{'text': u['text'], 'quote': u['text']}], 'unknowns': []} for u in json.loads(content)['units']]})
+    if REVIEW_SCHEMA in prompt:
+        cases = json.loads(content.split('\n待评审用例：')[1])
+        return json.dumps({'cases': [{'tc_sno': c['tc_sno'], 'verdict': 'supported', 'issues': []} for c in cases], 'uncovered_evidence_ids': []})
     if '需求业务分析师' in prompt:
         return json.dumps({'units': [{'id': u['id'], 'topics': [u['title']], 'summary': '业务规则与接续关系'} for u in json.loads(content)['units']]})
     if '测试架构师' in prompt:
@@ -36,7 +42,12 @@ def ai_reply(config, prompt, content, **kwargs):
         return '公共业务规则'
     body = json.loads(content.split('\n【各模块通用规则】')[0])
     refs = [m['id'] for m in body['materials']]
-    return json.dumps({'cases': [fixture(source_unit_ids=refs)]})
+    case = fixture(source_unit_ids=refs)
+    if CASE_BASIS_SCHEMA in prompt:
+        evidence = [e for u in body['materials'] for e in u['evidence_items']]
+        for step in case['steps']:
+            step.update(basis_type='document', evidence_ids=[e['id'] for e in evidence])
+    return json.dumps({'cases': [case]})
 
 
 class WorkbenchTests(TestCase):
@@ -133,6 +144,29 @@ class WorkbenchTests(TestCase):
         self.assertEqual(job.status, 'draft')
         self.assertEqual(call.call_count, 2)
         self.assertEqual(FunctionalCase.objects.count(), 0)
+
+    def test_business_flow_keeps_all_steps_through_generation_commit_and_export(self):
+        LLMConfig.objects.create(config_name='flow', name='test', api_url='https://example.invalid/v1', is_active=True)
+        job = GenerationJob.objects.create(project=self.project, creator=self.user,
+            input={'text': '完整登录流程：打开网站、选择入口、输入账号、输入密码、提交、核对首页、退出、核对登录页。'},
+            options={'rules': self.config.rules, 'prompts': self.config.prompts, 'stages': {}})
+        actions = ['打开网站', '选择入口', '输入账号', '输入密码', '提交表单', '核对首页', '退出登录', '核对登录页']
+        def reply(config, prompt, content, **kwargs):
+            answer = ai_reply(config, prompt, content, **kwargs)
+            payload = json.loads(answer)
+            if payload.get('cases') and 'steps' in payload['cases'][0]:
+                payload['cases'][0]['steps'] = [dict(seq=i+1, desc=action,
+                    expected=f'第 {i+1} 步完成并显示对应页面状态', action='verify', target=action,
+                    value='', locator='') for i, action in enumerate(actions)]
+            return json.dumps(payload)
+        with patch('guicase_workbench.tasks.invoke', side_effect=reply):
+            generate_job(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'draft')
+        saved = commit_job(job.pk, self.project, self.user, job.revision)
+        case = FunctionalCase.objects.get(pk=saved.saved_ids[0])
+        self.assertEqual(list(case.steps.order_by('step_number').values_list('description', flat=True)), actions)
+        self.assertEqual([step['desc'] for step in canonical_cases(saved)[0]['steps']], actions)
 
     def test_multimodal_message_contains_image_and_rules_run_afterwards(self):
         LLMConfig.objects.create(config_name='vision', name='test', api_url='https://example.invalid/v1', is_active=True, supports_vision=True)
@@ -319,6 +353,39 @@ class WorkbenchTests(TestCase):
             self.assertEqual(job.status, 'draft')
             self.assertEqual(job.title, '订单出票规则验收')
             self.assertFalse(FunctionalCase.objects.exists())
+
+    def test_existing_document_alone_and_mixed_with_new_upload_need_no_description(self):
+        from requirements.models import RequirementDocument
+        self.model()
+        doc = RequirementDocument.objects.create(project=self.project, uploader=self.user,
+            title='已有规则.txt', document_type='txt', content='R1：用户名为空时显示必填提示。')
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media), \
+                patch('guicase_workbench.views.generate_job.delay'):
+            for include_upload in (False, True):
+                data = {'document_ids': json.dumps([str(doc.pk)]), 'text': '', 'title': ''}
+                if include_upload:
+                    data['docs'] = [SimpleUploadedFile('new-rules.txt', 'R2：密码为空时显示必填提示。'.encode())]
+                response = self.api.post(self.base+'generate/', data, format='multipart')
+                self.assertEqual(response.status_code, 201, response.data)
+                job = GenerationJob.objects.order_by('-created_at').first()
+                self.assertIn(str(doc.pk), job.input['document_ids'])
+                self.assertEqual(len(job.input['document_ids']), 2 if include_upload else 1)
+                self.assertEqual(job.input['images'], [])
+                self.assertTrue(job.options['auto_title'])
+            self.assertEqual(RequirementDocument.objects.filter(project=self.project).count(), 2)
+            doc.refresh_from_db()
+            self.assertEqual(doc.content, 'R1：用户名为空时显示必填提示。')
+
+    def test_document_picker_catalog_includes_older_documents_and_is_project_scoped(self):
+        from requirements.models import RequirementDocument
+        RequirementDocument.objects.bulk_create([RequirementDocument(project=self.project, uploader=self.user,
+            title=f'规则{i}.txt', document_type='txt', content='已有需求') for i in range(201)])
+        RequirementDocument.objects.create(project=self.other, uploader=self.user, title='其他项目.txt', document_type='txt')
+        response = self.api.get(self.base)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['documents']), 201)
+        self.assertTrue(all('uploaded_at' in d for d in response.data['documents']))
+        self.assertNotIn('其他项目.txt', [d['title'] for d in response.data['documents']])
 
     def test_user_title_is_preserved(self):
         self.model()

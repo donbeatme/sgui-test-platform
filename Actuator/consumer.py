@@ -1497,6 +1497,8 @@ class TaskConsumer:
         
         # 启动任务处理协程
         process_task = asyncio.create_task(self.process_tasks())
+        from script_worker import ScriptWorker
+        replay_task = asyncio.create_task(ScriptWorker(self).run())
         
         # 启动WebSocket客户端
         await self.ws_client.run()
@@ -1504,3 +1506,4 @@ class TaskConsumer:
         # 停止任务处理
         self.stop()
         await process_task
+        await replay_task

@@ -56,6 +56,7 @@ export interface TestCase {
   module_id?: number;
   module_detail?: string;
   name: string;
+  source_task?: {id: string; title: string} | null;
   precondition: string;
   level: string; // P0, P1, P2, P3
   test_type?: string; // smoke, functional, boundary, exception, permission, security, compatibility

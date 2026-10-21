@@ -6,13 +6,15 @@ import { normalizeListPayload } from '@/features/api-testing/services/responseHe
 import type { TestSuite } from './testSuiteService';
 import type { TestCase } from './testcaseService';
 
+export interface ExecutionStepResult { step_number:number; description:string; expected_result:string; actual:string; status:string; reason:string; screenshots:string[]; screenshot_ids:number[] }
+
 // 测试用例执行结果接口
 export interface TestCaseResult {
   id: number;
   execution: number;
   testcase: number;
   testcase_detail?: TestCase;
-  status: 'pending' | 'running' | 'pass' | 'fail' | 'skip' | 'error';
+  status: 'pending' | 'running' | 'pass' | 'fail' | 'skip' | 'error' | 'blocked' | 'cancelled';
   error_message?: string;
   stack_trace?: string;
   started_at?: string;
@@ -29,9 +31,13 @@ export interface TestCaseResult {
 // 测试执行记录接口
 export interface TestExecution {
   id: number;
-  suite: number;
+  suite: number | null;
+  display_name: string;
+  source: string;
+  blocked_count: number;
+  cancelled_count: number;
   suite_detail?: TestSuite;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  status: 'pending' | 'running' | 'completed' | 'skipped' | 'failed' | 'cancelled' | 'blocked' | 'error';
   executor: number;
   executor_detail?: {
     id: number;
@@ -90,6 +96,7 @@ export interface TestReportResponse {
   success: boolean;
   data?: {
     execution_id: number;
+    source?: string;
     suite: {
       id: number;
       name: string;
@@ -105,11 +112,18 @@ export interface TestReportResponse {
       failed: number;
       skipped: number;
       error: number;
+      blocked: number;
+      cancelled: number;
       pass_rate: number;
     };
     results: Array<{
       testcase_id: number;
       testcase_name: string;
+      step_results?: ExecutionStepResult[];
+      target_urls?: string[];
+      model_info?: {model?:string; judge?:string};
+      case_snapshot?: {revision?:string; precondition?:string};
+      mcp_session_id?: string;
       status: string;
       error_message?: string;
       execution_time?: number;
@@ -140,6 +154,10 @@ export const getTestExecutionList = async (
   params?: {
     search?: string;
     ordering?: string;
+    status?: string;
+    suite?: number;
+    page?: number;
+    page_size?: number;
   }
 ): Promise<TestExecutionListResponse> => {
   const authStore = useAuthStore();

@@ -15,8 +15,8 @@ from .vendor.rules import DEFAULT_RULES, summary
 DEFAULT_PROMPTS = {
     'vision': '分析界面截图中的控件、可见状态、交互和异常场景。区分可见事实与推测，不编造隐藏业务规则。',
     'vision_page': '逐张说明界面，并在描述中标注图片文件名。',
-    'text': '基于提供的需求和界面分析生成中文测试用例，覆盖正常、异常、边界和权限。每一步填写可判定的预期结果。用例名称以“01 P1 场景”形式编写。',
-    'validate': '检查用例的需求覆盖、步骤与预期的一致性和不可判定描述。仅返回简短中文问题清单，不改写用例。',
+    'text': '基于提供的需求和界面分析生成中文测试用例，在明确需求与验收范围内覆盖有依据的正常、异常、边界和权限场景，不为凑齐分类编造规则。每一步填写可判定的预期结果。用例名称以“01 P1 场景”形式编写。',
+    'validate': '检查用例的需求覆盖、步骤与预期的一致性和不可判定描述。遵守当前阶段要求的输出格式，不改写用例。',
     'automation': '分析各用例哪些步骤适合 UI 自动化，列出需要用户补充的页面地址、定位器和测试数据。不要假定文字标签就是 CSS，也不要执行操作。',
 }
 LEVELS = {'高': 'P0', '中': 'P1', '低': 'P2'}
@@ -125,6 +125,15 @@ def inspect_cases(cases, rules, project=None):
             report['errors'] += len(errors)
             report['detail'].append({'index': i, 'case': c['tc_name'], 'errors': len(errors), 'warnings': 0,
                                     'issues': [{'field': 'schema', 'level': 'error', 'message': e} for e in errors]})
+    from .grounding import confirmation_reasons
+    report['confirmation_required'] = []
+    for i, case in enumerate(cases):
+        reasons = confirmation_reasons(case)
+        if reasons:
+            report['confirmation_required'].append({'tc_sno': case['tc_sno'], 'reasons': reasons})
+            report['errors'] += 1
+            report['detail'].append({'index': i, 'case': case['tc_name'], 'errors': 1, 'warnings': 0,
+                'issues': [{'field': 'grounding', 'level': 'error', 'message': '需确认依据：' + '；'.join(reasons)}]})
     report['duplicates'] = []
     if project:
         keys = {source_key(c): c for c in cases}

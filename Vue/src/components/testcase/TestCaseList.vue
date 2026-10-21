@@ -128,6 +128,10 @@
       <template #level="{ record }">
         <a-tag :color="getLevelColor(record.level)">{{ record.level }}</a-tag>
       </template>
+      <template #sourceTask="{ record }">
+        <router-link v-if="record.source_task" :to="{path:'/workbench',query:{job:record.source_task.id}}" :title="record.source_task.title" class="source-task-link" @click.stop>{{ record.source_task.title }}</router-link>
+        <span v-else class="text-gray">—</span>
+      </template>
       <template #testType="{ record }">
         <a-tag>{{ getTestTypeLabel(record.test_type) }}</a-tag>
       </template>
@@ -156,12 +160,16 @@
           <a-button type="primary" size="mini" @click.stop="handleViewTestCase(record)">{{ pageText.view }}</a-button>
           <a-button type="primary" size="mini" @click.stop="handleEditTestCase(record)">{{ pageText.edit }}</a-button>
           <a-button type="outline" size="mini" @click.stop="handleExecuteTestCase(record)">{{ pageText.execute }}</a-button>
+          <a-button type="outline" size="mini" @click.stop="handleGenerateScript(record)">{{ isEnglish ? 'Generate script' : '生成脚本' }}</a-button>
           <a-button type="outline" size="mini" @click.stop="handleCopyTestCase(record)">{{ pageText.copy }}</a-button>
           <a-button type="primary" status="danger" size="mini" @click.stop="handleDeleteTestCase(record)">{{ pageText.delete }}</a-button>
         </a-space>
       </template>
     </a-table>
 
+    <GenerateScriptModal v-if="currentProjectId && scriptCase" v-model:visible="generateScriptVisible"
+      :project-id="currentProjectId" :case-id="scriptCase.id" :name="scriptCase.name"
+      @submitted="()=>router.push({path:'/playwright-scripts'})" />
     <ImportModal
       v-if="currentProjectId"
       ref="importModalRef"
@@ -182,10 +190,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch, toRefs } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
+import { useRouter } from 'vue-router';
+import request from '@/utils/request';
 import { IconFolder, IconDownload, IconUpload, IconDown } from '@arco-design/web-vue/es/icon';
 import { useAppI18n } from '@/composables/useAppI18n';
 import ImportModal from '@/features/testcase-templates/components/ImportModal.vue';
 import ExportModal from '@/features/testcase-templates/components/ExportModal.vue';
+import GenerateScriptModal from './GenerateScriptModal.vue';
 import {
   getTestCaseList,
   deleteTestCase as deleteTestCaseService,
@@ -218,6 +229,11 @@ const emit = defineEmits<{
 
 const { currentProjectId, selectedModuleId } = toRefs(props);
 const { isEnglish } = useAppI18n();
+const router = useRouter();
+const generateScriptVisible = ref(false), scriptCase = ref<TestCase>();
+function handleGenerateScript(testCase: TestCase) {
+  scriptCase.value = testCase; generateScriptVisible.value = true;
+}
 
 const pageText = computed(() => (
   isEnglish.value
@@ -243,6 +259,7 @@ const pageText = computed(() => (
         copy: 'Copy',
         select: 'Select',
         caseName: 'Case name',
+        sourceTask: 'Source task',
         precondition: 'Precondition',
         priority: 'Priority',
         testType: 'Test type',
@@ -296,6 +313,7 @@ const pageText = computed(() => (
         copy: '复制',
         select: '选择',
         caseName: '用例名称',
+        sourceTask: '来源任务',
         precondition: '前置条件',
         priority: '优先级',
         testType: '测试类型',
@@ -426,7 +444,7 @@ const handleResize = () => {
 
 // 表格滚动配置
 const tableScroll = computed(() => ({
-  x: 1070,
+  x: 1656,
   y: tableContainerHeight.value,
 }));
 
@@ -530,6 +548,7 @@ const columns = computed(() => [
     sortable: { sortDirections: ['ascend', 'descend'], sortOrder: getSortOrder('id') },
   },
   { title: pageText.value.caseName, dataIndex: 'name', slotName: 'name', width: 180, ellipsis: true, tooltip: false, align: 'center' },
+  { title: pageText.value.sourceTask, dataIndex: 'source_task', slotName: 'sourceTask', width: 200, align: 'center' },
   { title: pageText.value.precondition, dataIndex: 'precondition', width: 120, ellipsis: true, tooltip: true, align: 'center' },
   { title: pageText.value.priority, dataIndex: 'level', slotName: 'level', width: 80, align: 'center' },
   { title: pageText.value.testType, dataIndex: 'test_type', slotName: 'testType', width: 90, align: 'center' },
@@ -558,7 +577,7 @@ const columns = computed(() => [
     align: 'center',
     sortable: { sortDirections: ['ascend', 'descend'], sortOrder: getSortOrder('updated_at') },
   },
-  { title: pageText.value.actions, slotName: 'operations', width: 240, fixed: 'right', align: 'center' },
+  { title: pageText.value.actions, slotName: 'operations', width: 320, fixed: 'right', align: 'center' },
 ]);
 
 const fetchTestCases = async () => {
@@ -875,6 +894,7 @@ defineExpose({
 </script>
 
 <style scoped>
+.source-task-link{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--theme-accent);text-decoration:none}.source-task-link:hover{text-decoration:underline}
 .testcase-content {
   flex: 1;
   background-color: var(--theme-card-bg);

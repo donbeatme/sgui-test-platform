@@ -49,6 +49,7 @@
         </div>
       </div>
 
+      <a-alert style="margin-bottom: 12px">通过率 = 通过用例次数 / 本次计划用例数。阻塞、错误、取消及未完成均不计入通过；历史对话不会自动补记为成功。</a-alert>
       <!-- 表格区域 -->
       <div class="content-section">
         <a-table
@@ -65,7 +66,7 @@
         <!-- 套件名称 -->
         <template #suite="{ record }">
           <a-tooltip :content="record.suite_detail?.description || pageText.noDescription">
-            <span class="suite-name">{{ record.suite_detail?.name || '-' }}</span>
+            <span class="suite-name">{{ record.display_name || record.suite_detail?.name || '-' }}</span>
           </a-tooltip>
         </template>
 
@@ -79,6 +80,9 @@
         <!-- 统计 -->
         <template #statistics="{ record }">
           <div class="statistics">
+            <a-tag v-if="record.blocked_count" color="gold">阻塞: {{ record.blocked_count }}</a-tag>
+            <a-tag v-if="record.cancelled_count" color="gray">取消: {{ record.cancelled_count }}</a-tag>
+            <a-tag v-if="record.skipped_count" color="cyan">未触发／跳过: {{ record.skipped_count }}</a-tag>
             <a-tag color="blue">{{ pageText.total }}: {{ record.total_count }}</a-tag>
             <a-tag color="green">{{ pageText.passed }}: {{ record.passed_count }}</a-tag>
             <a-tag v-if="record.failed_count > 0" color="red">{{ pageText.failed }}: {{ record.failed_count }}</a-tag>
@@ -90,7 +94,7 @@
         <template #pass-rate="{ record }">
           <div class="pass-rate">
             <a-progress
-              :percent="record.pass_rate"
+              :percent="record.pass_rate / 100"
               :color="getPassRateColor(record.pass_rate)"
               :show-text="false"
               size="small"
@@ -120,7 +124,7 @@
             </a-button>
             
             <a-button
-              v-if="record.status === 'running'"
+              v-if="['running', 'pending'].includes(record.status)"
               type="outline"
               status="warning"
               size="small"
@@ -195,7 +199,7 @@ const pageText = computed(() => (
         viewReport: 'View report',
         cancel: 'Cancel',
         delete: 'Delete',
-        suiteName: 'Suite name',
+        suiteName: 'Execution',
         status: 'Status',
         statistics: 'Statistics',
         passRate: 'Pass rate',
@@ -232,14 +236,14 @@ const pageText = computed(() => (
         filterStatusPlaceholder: '筛选状态',
         refresh: '刷新',
         noDescription: '无描述',
-        total: '总数',
+        total: '本次用例数',
         passed: '通过',
         failed: '失败',
         error: '错误',
         viewReport: '查看报告',
         cancel: '取消',
         delete: '删除',
-        suiteName: '测试套件',
+        suiteName: '执行任务',
         status: '状态',
         statistics: '统计',
         passRate: '通过率',
@@ -279,6 +283,9 @@ const statusOptions = computed(() => [
   { value: 'completed', label: pageText.value.statusCompleted },
   { value: 'failed', label: pageText.value.statusFailed },
   { value: 'cancelled', label: pageText.value.statusCancelled },
+  { value: 'blocked', label: '阻塞' },
+  { value: 'skipped', label: '未触发／不适用' },
+  { value: 'error', label: '系统错误' },
 ]);
 
 // 响应式数据
@@ -302,6 +309,7 @@ const paginationConfig = reactive({
 // 表格列定义
 const columns = computed(() => [
   { title: 'ID', dataIndex: 'id', width: 50, align: 'center' as const },
+  { title: '执行方式', dataIndex: 'source', render: ({record}: {record: TestExecution}) => record.source === 'playwright_script' ? 'Playwright 脚本' : record.source === 'ai_single' ? '单条 AI' : 'AI 套件', width: 130 },
   { title: pageText.value.suiteName, slotName: 'suite', width: 200, align: 'center' as const },
   { title: pageText.value.status, slotName: 'status', width: 80, align: 'center' as const },
   { title: pageText.value.statistics, slotName: 'statistics', width: 210, align: 'center' as const },
@@ -333,16 +341,14 @@ const fetchExecutions = async () => {
     const response = await getTestExecutionList(currentProjectId.value, {
       search: searchKeyword.value,
       ordering: '-created_at',
+      status: statusFilter.value || undefined,
+      page: paginationConfig.current,
+      page_size: paginationConfig.pageSize,
     });
 
     if (response.success && response.data) {
-      // 筛选状态
-      const filteredData = statusFilter.value
-        ? response.data.filter(item => item.status === statusFilter.value)
-        : response.data;
-      
-      executionData.value = filteredData;
-      paginationConfig.total = filteredData.length;
+      executionData.value = response.data;
+      paginationConfig.total = response.total ?? response.data.length;
     } else {
       Message.error(response.error || pageText.value.fetchExecutionsFailed);
       executionData.value = [];
@@ -365,11 +371,13 @@ const handleSearch = () => {
 // 分页处理
 const handlePageChange = (page: number) => {
   paginationConfig.current = page;
+  fetchExecutions();
 };
 
 const handlePageSizeChange = (pageSize: number) => {
   paginationConfig.pageSize = pageSize;
   paginationConfig.current = 1;
+  fetchExecutions();
 };
 
 // 刷新
@@ -389,7 +397,7 @@ const handleCancel = (execution: TestExecution) => {
 
   Modal.confirm({
     title: pageText.value.confirmCancelTitle,
-    content: pageText.value.confirmCancelContent(execution.suite_detail?.name || '-'),
+    content: pageText.value.confirmCancelContent(execution.display_name || execution.suite_detail?.name || '-'),
     onOk: async () => {
       try {
         const response = await cancelTestExecution(currentProjectId.value!, execution.id);
@@ -418,7 +426,7 @@ const handleDelete = (execution: TestExecution) => {
 
   Modal.confirm({
     title: pageText.value.confirmDeleteTitle,
-    content: pageText.value.confirmDeleteContent(execution.suite_detail?.name || '-'),
+    content: pageText.value.confirmDeleteContent(execution.display_name || execution.suite_detail?.name || '-'),
     okText: pageText.value.confirmDeleteOk,
     okButtonProps: {
       status: 'danger',
@@ -447,7 +455,7 @@ const getStatusColor = (status: string) => {
     running: 'blue',
     completed: 'green',
     failed: 'red',
-    cancelled: 'orange',
+    cancelled: 'orange', blocked: 'gold', error: 'orangered', skipped: 'cyan',
   };
   return colors[status] || 'gray';
 };
@@ -459,7 +467,7 @@ const getStatusText = (status: string) => {
     running: pageText.value.statusRunning,
     completed: pageText.value.statusCompleted,
     failed: pageText.value.statusFailed,
-    cancelled: pageText.value.statusCancelled,
+    cancelled: pageText.value.statusCancelled, blocked: '阻塞', error: '系统错误', skipped: '未触发／不适用',
   };
   return texts[status] || status;
 };
@@ -492,7 +500,7 @@ const startRefresh = () => {
   // 每10秒刷新一次
   refreshInterval = window.setInterval(() => {
     // 只有当有任务在执行中时才刷新
-    const hasRunningTasks = executionData.value.some(e => e.status === 'running');
+    const hasRunningTasks = executionData.value.some(e => ['running', 'pending'].includes(e.status));
     if (hasRunningTasks) {
       fetchExecutions();
     } else {

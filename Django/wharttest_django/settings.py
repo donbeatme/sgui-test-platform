@@ -119,6 +119,7 @@ INSTALLED_APPS = [
     "accounts",  # 账户与认证应用。
     "projects",  # 项目管理应用。
     "testcases",  # 测试用例管理应用。
+    "playwright_scripts",
     "drf_spectacular",  # OpenAPI Schema 生成与文档支持。
     "corsheaders",  # CORS 跨域支持。
     "langgraph_integration",  # LangGraph 集成应用。
@@ -225,8 +226,10 @@ if DATABASE_TYPE == "postgres":
             "OPTIONS": {
                 "connect_timeout": 5,
             },
-            # 连接保持 600 秒（10 分钟），减少频繁建连开销。
-            "CONN_MAX_AGE": 600,
+            # ASGI request threads must release connections after each request.
+            # Persistent per-thread connections exhaust PostgreSQL during polling.
+            # https://docs.djangoproject.com/en/5.2/topics/async/#queries-the-orm
+            "CONN_MAX_AGE": 0,
             # 启用连接健康检查。
             "CONN_HEALTH_CHECKS": True,
         }

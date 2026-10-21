@@ -64,6 +64,50 @@ class TestCaseListApiTests(APITestCase):
         self.assertNotIn("steps", results[0])
         self.assertEqual(results[0]["id"], self.testcase.id)
         self.assertEqual(results[0]["name"], self.testcase.name)
+        self.assertIsNone(results[0]['source_task'])
+
+    def test_task_title_in_list_and_detail_is_live_and_read_only(self):
+        from guicase_workbench.models import GenerationJob, CaseExtension
+        job = GenerationJob.objects.create(project=self.project, creator=self.user, title='来源任务名称')
+        CaseExtension.objects.create(case=self.testcase, project=self.project, job=job, source_key='task-test', original={})
+        base = f'/api/projects/{self.project.id}/testcases/'
+        response = self.client.get(base)
+        self.assertEqual(response.data['results'][0]['source_task'], {'id': str(job.pk), 'title': job.title})
+        job.title = '已更新的任务名称'
+        job.save()
+        response = self.client.patch(base + f'{self.testcase.id}/', {'source_task': {'title': '不能从用例接口伪造'}}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['source_task']['title'], '已更新的任务名称')
+        job.delete()
+        self.assertIsNone(self.client.get(base + f'{self.testcase.id}/').data['source_task'])
+
+    def test_source_task_never_exposes_other_project(self):
+        from guicase_workbench.models import GenerationJob, CaseExtension
+        other = Project.objects.create(name='Other project', creator=self.user)
+        job = GenerationJob.objects.create(project=other, creator=self.user, title='Other project task')
+        CaseExtension.objects.create(case=self.testcase, project=self.project, job=job, source_key='wrong-source', original={})
+        response = self.client.get(f'/api/projects/{self.project.id}/testcases/')
+        self.assertIsNone(response.data['results'][0]['source_task'])
+
+    def test_task_summaries_are_loaded_without_per_case_queries_or_large_json(self):
+        from guicase_workbench.models import GenerationJob, CaseExtension
+        from testcases.views import TestCaseViewSet
+        from testcases.serializers import TestCaseListSerializer
+        for i in range(3):
+            case = TestCaseModel.objects.create(project=self.project, module=self.module, name=f'Generated {i}', creator=self.user)
+            job = GenerationJob.objects.create(project=self.project, creator=self.user, title=f'Task {i}', progress={'large': 'x' * 10000})
+            CaseExtension.objects.create(case=case, project=self.project, job=job, source_key=f'source-{i}', original={'large': 'x' * 10000})
+        view = TestCaseViewSet()
+        view.kwargs = {'project_pk': self.project.pk}
+        view.action = 'list'
+        view.request = type('Request', (), {'query_params': {}})()
+        cases = list(view.get_queryset())
+        generated = [c for c in cases if getattr(c, 'guicase_extension', None)]
+        self.assertEqual(len(generated), 3)
+        self.assertIn('progress', generated[0].guicase_extension.job.get_deferred_fields())
+        self.assertIn('original', generated[0].guicase_extension.get_deferred_fields())
+        with self.assertNumQueries(0):
+            self.assertEqual(len([TestCaseListSerializer().get_source_task(c) for c in generated]), 3)
 
     def test_list_api_uses_pagination(self):
         """列表接口应按 page/page_size 分页，返回 count/results 结构。"""

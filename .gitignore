@@ -83,6 +83,8 @@ docs/competitive-analysis/
 .freebuff/project-id
 
 /local/.env
+/local/playwright-mcp*.local.json
+/local/browser-mcp-process.json
 /data/
 /local/actuator-windows.toml
 /local/actuator-custom.toml
@@ -97,16 +99,18 @@ docs/competitive-analysis/
 
 /local/sgui-cleanup-backup-2026-09-14/
 
+# Publication exclusions
 # Private local configuration and generated output
 /Actuator/config.toml
 /local/memory-optimization/
 /local/*-process.json
-/local/playwright-mcp*.local.json
 /local/*credentials*
-/local/actuator-custom.toml
 **/test-results/
 **/playwright-report/
 *.sql
 *.dump
 *.pem
 *.key
+
+.venv/
+venv/

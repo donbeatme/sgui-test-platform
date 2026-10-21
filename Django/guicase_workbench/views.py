@@ -20,7 +20,10 @@ from testcases.permissions import IsProjectMemberForTestCase
 from langgraph_integration.models import LLMConfig
 from requirements.models import RequirementDocument
 from knowledge.models import KnowledgeBase
-from .models import GenerationJob
+from .models import GenerationJob, CaseExtension
+from . import grounding as ground
+from . import controls
+from .source_grounding import summary as source_summary
 from .limits import (MAX_TEXT_CHARS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES,
                      MAX_IMAGES, MAX_IMAGE_BYTES, MAX_UPLOAD_BYTES, upload_limits)
 from .services import configuration, normalize_cases, inspect_cases, commit_job, canonical_cases, as_gui, DEFAULT_PROMPTS
@@ -39,6 +42,12 @@ def job_data(job, full=True):
                     'sources': state.get('sources', []), 'coverage': state.get('coverage'),
                     'resumable': job.status in ['failed', 'cancelled'] and bool(job.options.get('prompts')),
                     'last_error': state.get('last_error'), 'modules': []}
+        progress['source_extraction'] = source_summary(state)
+        calls = state.get('model_calls', [])
+        progress['model_usage'] = {'calls': len(calls), 'seconds': round(sum(c.get('seconds', 0) for c in calls), 1)}
+        from .generation_profiles import profile_for
+        progress['generation_profile_label'] = profile_for(job.options)['label']
+        data['generation_profile'] = job.options.get('generation_profile', 'detailed')
         image_batches = state.get('vision_batches', [])
         image_outputs = state.get('vision_outputs', {})
         image_total = len(job.input.get('images', []))
@@ -54,10 +63,20 @@ def job_data(job, full=True):
             progress['modules'].append({**module, 'batch_total': len(items),
                 'batch_done': sum(b['id'] in outputs for b in items),
                 'case_count': sum(len(outputs.get(b['id'], [])) for b in items)})
-        data.update(cases=canonical_cases(job), issues=job.issues, notes=job.notes,
+        cases = copy.deepcopy(canonical_cases(job))
+        if job.status == 'saved' and job.options.get('grounding_version'):
+            progress['coverage'] = {**(progress.get('coverage') or {}), 'evidence': ground.build_coverage(state.get('units', []), cases, [e for review in state.get('source_reviews', {}).values() for e in review.get('uncovered_evidence_ids', [])])}
+        for case in cases:
+            case['confirmation_reasons'] = ground.confirmation_reasons(case)
+            case['review_fingerprint'] = ground.fingerprint(case)
+            human = case.get('human_review') or {}
+            case['human_review_current'] = bool(human.get('user_id') and human.get('note')
+                and human.get('fingerprint') == case['review_fingerprint'])
+        data.update(cases=cases, issues=job.issues, notes=job.notes,
+                    control_images=controls.panel_data(job, cases),
                     progress=progress,
                     input={k: v for k, v in job.input.items() if k != 'images'},
-                    images=[{'name': a['name']} for a in job.input.get('images', [])])
+                    images=[{'name': a['name'], 'url': default_storage.url(a['path'])} for a in job.input.get('images', [])])
     return data
 
 
@@ -67,7 +86,7 @@ class WorkbenchView(APIView):
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
         self.project = get_object_or_404(Project, pk=kwargs['project_pk'])
-        perm = 'view' if request.method == 'GET' else 'add'
+        perm = 'view' if request.method == 'GET' else 'change' if kwargs.get('operation') in ('confirm-case', 'confirm-cases', 'revoke-confirmations', 'controls', 'continue-controls') else 'add'
         if not request.user.has_perm(f'testcases.{perm}_testcase'):
             raise PermissionDenied('需要相应的用例管理权限。')
 
@@ -83,7 +102,7 @@ class WorkbenchView(APIView):
             'settings': {'rules': config.rules, 'prompts': config.prompts, 'stages': config.stages},
             'rule_meta': meta(),
             'models': list(LLMConfig.objects.values('id', 'config_name', 'name', 'supports_vision', 'is_active')),
-            'documents': list(RequirementDocument.objects.filter(project=self.project).values('id', 'title', 'word_count', 'image_count')[:200]),
+            'documents': list(RequirementDocument.objects.filter(project=self.project).values('id', 'title', 'word_count', 'image_count', 'uploaded_at')),
             'knowledge_bases': list(KnowledgeBase.objects.filter(project=self.project).values('id', 'name')),
             'jobs': [job_data(j, full=False) for j in GenerationJob.objects.filter(project=self.project)[:100]],
             'can_configure': request.user.is_superuser or (request.user.has_perm('projects.change_project') and ProjectMember.objects.filter(project=self.project, user=request.user, role__in=['owner', 'admin']).exists()),
@@ -92,6 +111,26 @@ class WorkbenchView(APIView):
     def post(self, request, project_pk, operation=None, job_id=None):
         if job_id:
             job = get_object_or_404(GenerationJob, pk=job_id, project=self.project)
+            if operation in ('controls', 'continue-controls'):
+                proceed = operation == 'continue-controls'
+                if proceed and not request.user.has_perm('testcases.add_testcase'):
+                    raise PermissionDenied('继续生成需要新增用例权限。')
+                with transaction.atomic():
+                    Project.objects.select_for_update().get(pk=self.project.pk)
+                    job = GenerationJob.objects.select_for_update().get(pk=job.pk)
+                    if proceed and GenerationJob.objects.filter(project=self.project, status__in=['queued', 'running']).count() >= 2:
+                        raise ValidationError('当前项目已有 2 个进行中的任务，请稍后继续。')
+                    controls.save_controls(job, request.data, request.user, proceed)
+                    if proceed:
+                        resolve_model(job.options, 'text', required=True)
+                    job.save()
+                if proceed:
+                    try:
+                        generate_job.delay(str(job.pk), str(job.run_token))
+                    except Exception:
+                        GenerationJob.objects.filter(pk=job.pk, run_token=job.run_token, status='queued').update(status='failed', stage='后台队列不可用，可从断点继续', updated_at=timezone.now())
+                        job.refresh_from_db()
+                return Response(job_data(job))
             if operation == 'resume':
                 if job.creator_id != request.user.pk and not request.user.is_superuser:
                     raise PermissionDenied('仅任务发起人可以继续任务。')
@@ -121,13 +160,53 @@ class WorkbenchView(APIView):
                 GenerationJob.objects.filter(pk=job.pk, status__in=['queued', 'running']).update(status='cancelled', stage='已取消')
                 job.refresh_from_db()
                 return Response(job_data(job))
+            if operation in ('confirm-case', 'confirm-cases', 'revoke-confirmations'):
+                if not request.user.has_perm('testcases.change_testcase'):
+                    raise PermissionDenied('需要用例编辑权限才能确认依据。')
+                with transaction.atomic():
+                    job = GenerationJob.objects.select_for_update().get(pk=job.pk)
+                    if job.status not in ('draft', 'saved') or job.revision != request.data.get('revision'):
+                        raise ValidationError('任务版本已改变，请刷新后确认。')
+                    cases = canonical_cases(job)
+                    single = operation == 'confirm-case'
+                    ids = [request.data.get('tc_sno')] if single else request.data.get('tc_snos')
+                    if not isinstance(ids, list) or not ids or any(not isinstance(i, str) for i in ids) or len(set(ids)) != len(ids):
+                        raise ValidationError('请选择用例，编号须为不重复的文本列表。')
+                    index = {c['tc_sno']: c for c in cases}
+                    if any(i not in index or not index[i].get('grounding_version') for i in ids):
+                        raise ValidationError('所选用例不属于本任务或不使用依据评审。')
+                    selected = [index[i] for i in ids]
+                    if not single:
+                        expected = request.data.get('case_fingerprints')
+                        if not isinstance(expected, dict) or any(expected.get(c['tc_sno']) != ground.fingerprint(c) for c in selected):
+                            raise ValidationError('所选用例内容已改变，请刷新并核对后重试。')
+                        if operation == 'confirm-cases' and any(not ground.confirmation_reasons(c) for c in selected):
+                            raise ValidationError('部分用例已无需确认，请刷新后重新选择。')
+                        if operation == 'revoke-confirmations' and any(not c.get('human_review') for c in selected):
+                            raise ValidationError('部分用例没有可撤回的人工确认，请刷新后重试。')
+                    batch_id = str(uuid.uuid4()) if operation == 'confirm-cases' else None
+                    for case in selected:
+                        if operation == 'revoke-confirmations':
+                            ground.revoke_confirmation(case, request.user)
+                        else:
+                            ground.confirm_case(case, request.user, request.data.get('note'), batch_id=batch_id)
+                        if job.status == 'saved':
+                            extension = CaseExtension.objects.select_for_update().get(case_id=case['wharttest_id'], job=job)
+                            extension.original = case
+                            extension.save(update_fields=['original'])
+                    job.cases = cases
+                    ground.refresh_job(job)
+                    job.revision += 1
+                    job.save()
+                return Response(job_data(job))
             if operation == 'draft':
                 with transaction.atomic():
                     job = GenerationJob.objects.select_for_update().get(pk=job.pk)
                     if job.status != 'draft' or job.revision != request.data.get('revision'):
                         raise ValidationError('草稿已更新或已保存，请刷新后再编辑。')
-                    job.cases = normalize_cases(request.data.get('cases'), namespace=str(job.id))
-                    job.issues = inspect_cases(job.cases, job.options['rules'], self.project)
+                    cases = normalize_cases(request.data.get('cases'), namespace=str(job.id))
+                    job.cases = ground.preserve_reviews(cases, job.cases, bool(job.options.get('grounding_version')))
+                    ground.refresh_job(job)
                     job.revision += 1
                     job.save()
                 return Response(job_data(job))
@@ -142,6 +221,12 @@ class WorkbenchView(APIView):
             else:
                 payload, title = request.data.get('payload'), str(request.data.get('title') or '导入用例')[:200]
             cases = normalize_cases(payload)
+            for case in cases:
+                if case.get('grounding_version'):
+                    case.pop('human_review', None)
+                    case.pop('human_reviews', None)
+                    case.pop('source_review', None)
+                    case.pop('basis_fingerprint', None)
             report = inspect_cases(cases, config.rules, self.project)
             notes = ['源编号重复的条目会跳过，正式用例不会被覆盖。']
             if report['source_image_references']:
@@ -153,6 +238,8 @@ class WorkbenchView(APIView):
                 options={'rules': config.rules}, notes=notes)
             return Response(job_data(job), status=201)
         if operation == 'generate':
+            from .generation_profiles import validate_profile
+            profile = validate_profile(request.data.get('generation_profile', 'detailed'))
             if GenerationJob.objects.filter(project=self.project, status__in=['queued', 'running']).count() >= 2:
                 raise ValidationError('当前项目已有 2 个进行中的任务，请等待完成或先取消。')
             stages = copy.deepcopy(config.stages)
@@ -163,7 +250,8 @@ class WorkbenchView(APIView):
                         stages[key] = int(raw)
                     except (ValueError, TypeError):
                         raise ValidationError('模型 ID 无效。')
-            options = {'rules': config.rules, 'prompts': {**DEFAULT_PROMPTS, **config.prompts}, 'stages': stages}
+            options = {'grounding_version': 1, 'control_review_version': 1, 'rules': config.rules, 'prompts': {**DEFAULT_PROMPTS, **config.prompts}, 'stages': stages}
+            options['generation_profile'] = profile
             resolve_model(options, 'text', required=True)
             data = self.prepare_input(request)
             if data['images']:
@@ -199,10 +287,15 @@ class WorkbenchView(APIView):
             raise ValidationError('知识库不属于当前项目。')
         image_files = request.FILES.getlist('images')
         docs = request.FILES.getlist('docs')
-        if len(image_files) > MAX_IMAGES or len(docs) + len(ids) > MAX_DOCUMENTS:
-            raise ValidationError(f'一次最多上传 {MAX_IMAGES} 张图片、关联 {MAX_DOCUMENTS} 份文档（含已有文档）。')
+        image_limit = min(MAX_IMAGES, 6) if request.data.get('generation_profile') == 'scenario' else MAX_IMAGES
+        if len(image_files) > image_limit:
+            raise ValidationError(f'当前生成方式最多上传 {image_limit} 张图片，请减少图片或切换生成方式。尚未创建生成任务或调用模型。')
+        if len(docs) + len(ids) > MAX_DOCUMENTS:
+            raise ValidationError(f'一次最多关联 {MAX_DOCUMENTS} 份文档（含已有文档）。')
         if sum(f.size for f in [*docs, *image_files]) > MAX_UPLOAD_BYTES:
             raise ValidationError('本次上传文件合计不能超过 80 MB，请分批上传后引用已有文档。')
+        if len({Path(f.name).name for f in image_files}) != len(image_files):
+            raise ValidationError('图片文件名重复，请先改名，以便准确追溯每张截图。')
         image_info = []
         for f in image_files:
             if f.size > MAX_IMAGE_BYTES:
@@ -247,8 +340,8 @@ class WorkbenchView(APIView):
         if request.data.get('include_document_images') == 'true':
             from requirements.models import DocumentImage
             extracted = DocumentImage.objects.filter(document__project=self.project, document_id__in=ids)
-            if extracted.count() + len(image_info) > MAX_IMAGES:
-                raise ValidationError(f'包含文档内嵌图片后超过 {MAX_IMAGES} 张，请减少文档或关闭内嵌图片选项。')
+            if extracted.count() + len(image_info) > image_limit:
+                raise ValidationError(f'包含文档内嵌图片后超过当前生成方式的 {image_limit} 张上限，请减少文档、关闭内嵌图片选项或切换生成方式。尚未创建生成任务或调用模型。')
             for img in extracted:
                 if img.image_file.size > MAX_IMAGE_BYTES:
                     raise ValidationError('文档内嵌图片超过 8 MB，请先压缩。')

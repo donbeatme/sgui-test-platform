@@ -243,6 +243,7 @@ class TestCaseScreenshot(models.Model):
         related_name='screenshots',
         verbose_name=_('测试用例')
     )
+    execution_result = models.ForeignKey('TestCaseResult', null=True, blank=True, on_delete=models.SET_NULL, related_name='evidence')
     screenshot = models.ImageField(
         _('截屏图片'),
         upload_to=testcase_screenshot_path,
@@ -339,12 +340,20 @@ class TestExecution(models.Model):
         ('pending', _('等待中')),
         ('running', _('执行中')),
         ('completed', _('已完成')),
+        ('skipped', _('未触发／不适用')),
         ('failed', _('失败')),
         ('cancelled', _('已取消')),
+        ('blocked', _('阻塞')),
+        ('error', _('系统错误')),
     ]
     
+    project = models.ForeignKey('projects.Project', null=True, on_delete=models.CASCADE, related_name='test_executions')
+    name = models.CharField(max_length=255, blank=True)
+    source = models.CharField(max_length=24, default='ai_suite')
+    blocked_count = models.PositiveIntegerField(default=0)
+    cancelled_count = models.PositiveIntegerField(default=0)
     suite = models.ForeignKey(
-        TestSuite,
+        TestSuite, null=True, blank=True,
         on_delete=models.CASCADE,
         related_name='executions',
         verbose_name=_('测试套件')
@@ -389,7 +398,18 @@ class TestExecution(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.suite.name} - {self.get_status_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.display_name} - {self.get_status_display()}"
+
+    @property
+    def display_name(self):
+        return self.name or (self.suite.name if self.suite_id else "AI 用例执行")
+
+    def save(self, *args, **kwargs):
+        if not self.project_id and self.suite_id:
+            self.project_id = self.suite.project_id
+            if kwargs.get("update_fields"):
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {"project"}
+        super().save(*args, **kwargs)
     
     @property
     def duration(self):
@@ -417,6 +437,8 @@ class TestCaseResult(models.Model):
         ('fail', _('失败')),
         ('skip', _('跳过')),
         ('error', _('错误')),
+        ('blocked', _('阻塞')),
+        ('cancelled', _('已取消')),
     ]
     
     execution = models.ForeignKey(
@@ -445,6 +467,12 @@ class TestCaseResult(models.Model):
     completed_at = models.DateTimeField(_('完成时间'), null=True, blank=True)
     execution_time = models.FloatField(_('执行耗时(秒)'), null=True, blank=True)
     
+    case_snapshot = models.JSONField(default=dict, blank=True)
+    step_results = models.JSONField(default=list, blank=True)
+    target_urls = models.JSONField(default=list, blank=True)
+    model_info = models.JSONField(default=dict, blank=True)
+    evidence_token = models.CharField(max_length=32, blank=True)
+
     # MCP相关信息
     mcp_session_id = models.CharField(_('MCP会话ID'), max_length=255, blank=True, null=True)
     

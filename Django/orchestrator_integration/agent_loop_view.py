@@ -839,6 +839,9 @@ class AgentLoopStreamAPIView(View):
         except Exception as e:
             raise AuthenticationFailed(f"Invalid token: {str(e)}")
 
+    from testcases.execution_stream import track_case_stream
+
+    @track_case_stream
     async def _create_stream_generator(
         self,
         request,
@@ -876,6 +879,9 @@ class AgentLoopStreamAPIView(View):
         try:
             active_config = await sync_to_async(LLMConfig.objects.get)(is_active=True)
             logger.info(f"AgentLoopStreamAPI: Using LLM config: {active_config.name}")
+            if getattr(request, "execution_result_id", None):
+                from testcases.models import TestCaseResult
+                await sync_to_async(TestCaseResult.objects.filter(pk=request.execution_result_id).update)(model_info={"config_id": active_config.pk, "model": active_config.name, "judge": "AI报告，后端校验步骤与证据"})
             context_limit = active_config.context_limit or 128000
             model_name = active_config.name or "gpt-4o"
         except LLMConfig.DoesNotExist:
@@ -1022,14 +1028,14 @@ class AgentLoopStreamAPIView(View):
             if test_case_id:
                 from .execution_guard import EXECUTION_INSTRUCTION
                 effective_prompt = (effective_prompt or "") + EXECUTION_INSTRUCTION
-                effective_prompt += f"\n本次截图文件名前缀：case{test_case_id}-{session_id[:10]}-step；每一步分别保存。\n"
+                if getattr(request, "execution_result_id", None):
+                    from testcases.execution_tracking import execution_instruction
+                    effective_prompt += await sync_to_async(execution_instruction)(request.execution_result_id)
+                else:
+                    effective_prompt += f"\n本次截图文件名前缀：case{test_case_id}-{session_id[:10]}-step；每一步分别保存。\n"
 
-            # 8.1 如果需要生成脚本，追加脚本生成指令
-            if generate_playwright_script:
-                effective_prompt = (
-                    effective_prompt or ""
-                ) + PLAYWRIGHT_SCRIPT_INSTRUCTION
-                logger.info(f"AgentLoopStreamAPI: 已追加脚本生成指令")
+            # Replay generation is a separate background task. Do not ask the agent
+            # to build UI workflows or run the business a second time in this session.
 
             # 9. 构建用户消息（支持多模态：上传图片 + HTTP(S) 图片 + 需求文档图片）
             user_message_for_llm = user_message
@@ -1083,7 +1089,14 @@ class AgentLoopStreamAPIView(View):
 
                 if test_case_id:
                     from .execution_guard import guarded_execution_middleware
-                    middleware = guarded_execution_middleware(middleware)
+                    frozen_case = None
+                    if getattr(request, "execution_result_id", None):
+                        from testcases.models import TestCaseResult
+                        frozen_case = await sync_to_async(
+                            TestCaseResult.objects.filter(pk=request.execution_result_id)
+                            .values_list('case_snapshot', flat=True).first
+                        )()
+                    middleware = guarded_execution_middleware(middleware, frozen_case)
 
                 agent = create_agent(
                     llm,
@@ -1282,7 +1295,7 @@ class AgentLoopStreamAPIView(View):
                                     if node_name == "ExecutionGuardMiddleware.before_model" and isinstance(node_output, dict):
                                         for guard_message in node_output.get("messages", []):
                                             yield create_sse_data({"type": "stream", "data": guard_message.content})
-                                    if node_name == "agent" and isinstance(
+                                    if node_name in ("agent", "model") and isinstance(
                                         node_output, dict
                                     ):
                                         messages = node_output.get("messages", [])
@@ -1325,6 +1338,16 @@ class AgentLoopStreamAPIView(View):
                                                 ) or getattr(
                                                     tool_msg, "tool_name", "unknown"
                                                 )
+
+                                                if generate_playwright_script and getattr(request, 'execution_result_id', None):
+                                                    from playwright_scripts.services import record_event
+                                                    call_id = getattr(tool_msg, 'tool_call_id', '')
+                                                    call = next((c for c in current_tool_calls if c.get('id') == call_id), {})
+                                                    try:
+                                                        await sync_to_async(record_event)(request.execution_result_id, call_id,
+                                                            tool_name, call.get('args', {}), content)
+                                                    except Exception:
+                                                        logger.exception('Replay event recording failed for %s', request.execution_result_id)
 
                                                 # 使用辅助函数处理 MCP 工具输出
                                                 content, summary = (
@@ -1451,6 +1474,16 @@ class AgentLoopStreamAPIView(View):
                         f"AgentLoopStreamAPI: Failed to calculate token count: {e}"
                     )
 
+                if getattr(request, "execution_result_id", None):
+                    final_state = await agent.aget_state(invoke_config)
+                    final_messages = final_state.values.get("messages", []) if final_state.values else []
+                    last = final_messages[-1] if final_messages else None
+                    if isinstance(last, AIMessage) and not getattr(last, "tool_calls", None):
+                        value = last.content
+                        if isinstance(value, list):
+                            value = "".join(part.get("text", "") for part in value if isinstance(part, dict))
+                        yield create_sse_data({"type": "case_final_response", "text": value if isinstance(value, str) else ""})
+
                 # AI 自动总结会话标题
                 if chat_session.title.startswith("新对话") and "llm" in locals() and llm:
                     try:
@@ -1477,7 +1510,7 @@ class AgentLoopStreamAPIView(View):
                     if generate_playwright_script:
                         complete_data["script_generation"] = {
                             "enabled": True,
-                            "message": "脚本管理工具已启用",
+                            "message": "本次操作已记录，执行结束后将在 Playwright 脚本中整理代码。",
                         }
                     yield create_sse_data(complete_data)
 
@@ -1552,7 +1585,7 @@ class AgentLoopStreamAPIView(View):
             stream_mode = stream_mode.lower() in ("true", "1", "yes")
 
         # Playwright 脚本生成参数
-        generate_playwright_script = body_data.get("generate_playwright_script", False)
+        generate_playwright_script = body_data.get("generate_playwright_script", False) is True
         test_case_id = body_data.get("test_case_id")  # 用于关联生成的脚本
         use_pytest = body_data.get("use_pytest", True)  # 生成 pytest 格式还是简单格式
 
@@ -1589,6 +1622,22 @@ class AgentLoopStreamAPIView(View):
         if not session_id:
             session_id = uuid.uuid4().hex
             logger.info(f"AgentLoopStreamAPI: Generated new session_id: {session_id}")
+
+        if test_case_id:
+            from testcases.execution_tracking import begin_execution
+            try:
+                run = await sync_to_async(begin_execution)(project, request.user, test_case_id, str(session_id), body_data.get("execution_result_id"))
+                request.execution_result_id = run.pk
+                if generate_playwright_script:
+                    from playwright_scripts.services import enable_capture
+                    await sync_to_async(enable_capture)(run)
+                from testcases.preflight import prepare_execution
+                request.execution_preflight = await sync_to_async(prepare_execution)(run)
+            except Exception as exc:
+                if getattr(request, 'execution_result_id', None):
+                    from testcases.execution_tracking import finish_execution
+                    await sync_to_async(finish_execution)(request.execution_result_id, forced='error', reason='执行前检查发生异常，请检查服务日志。')
+                return api_error_response(str(exc), 400)
 
         # 5.1 清理陈旧停止信号，避免上一次"停止"残留影响本轮首次发送
         # 场景：前端先断开 SSE，再调用 stop API，可能导致信号留存到下一次请求
@@ -1820,8 +1869,16 @@ class AgentLoopStopAPIView(View):
         if not session_id:
             return api_error_response("session_id is required", 400)
 
-        # 3. 设置停止信号
+        # Only the owner of the chat/execution can stop this session.
+        from testcases.models import TestCaseResult
+        from testcases.execution_tracking import finish_execution
+        owned_chat = await sync_to_async(ChatSession.objects.filter(session_id=session_id, user=user).exists)()
+        runs = await sync_to_async(list)(TestCaseResult.objects.filter(mcp_session_id=session_id, execution__executor=user, status="running"))
+        if not owned_chat and not runs:
+            return api_error_response("Session access denied", 403)
         success = set_stop_signal(session_id)
+        for run in runs:
+            await sync_to_async(finish_execution)(run.pk, forced="cancelled", reason="用户停止了本次执行。")
 
         logger.info(
             f"AgentLoopStopAPI: Stop signal set for session {session_id} by user {user.id}"

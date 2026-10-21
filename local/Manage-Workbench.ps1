@@ -1,7 +1,10 @@
 param([ValidateSet('Start','Stop','Status','Build')][string]$Action='Status')
 $ErrorActionPreference='Stop'
-$dockerExe=(Get-Command docker -ErrorAction Stop).Source
-$taskRoot=Split-Path -Parent $PSScriptRoot
+$dockerExe='D:\wharttest\runtime\docker-desktop\resources\bin\docker.exe'
+$taskRoot='D:\wharttest\guicase-next'
+$env:TEMP='D:\wharttest\tmp'
+$env:TMP=$env:TEMP
+$env:npm_config_cache='D:\wharttest\cache\npm'
 $env:COMPOSE_PARALLEL_LIMIT='2'
 $composeArgs=@('compose','--env-file',"$taskRoot\local\.env",'-p','guicase-next','-f',"$taskRoot\local\compose.yml")
 function Invoke-WorkbenchCompose {
@@ -12,24 +15,23 @@ function Invoke-WorkbenchCompose {
 switch($Action){
     'Build' {
         Push-Location "$taskRoot\Vue"
-        try { & npm.cmd run build; if($LASTEXITCODE -ne 0){throw 'Frontend build failed.'} }
+        try { & D:\nodejs\npm.cmd run build; if($LASTEXITCODE -ne 0){throw 'Frontend build failed.'} }
         finally { Pop-Location }
     }
     'Start' {
-        & $dockerExe info --format '{{.ServerVersion}}'
-        if($LASTEXITCODE -ne 0){throw 'Start Docker with Linux containers first.'}
+        & D:\wharttest\deployment\Start-Docker.ps1
+        # Run one WHartTest stack at a time on this 16 GB computer.
+        $oldRunning=@(& $dockerExe ps --format '{{.Names}}' --filter 'name=wharttest-')
+        if($oldRunning.Count -gt 0){& D:\wharttest\deployment\Manage-WHartTest.ps1 -Action Stop}
         if(-not(Test-Path -LiteralPath "$taskRoot\Vue\dist\index.html")){throw 'Build the frontend first: Manage-Workbench.ps1 -Action Build'}
-        foreach($volume in @('guicase-next_postgres-data','guicase-next_qdrant-data')) {
-            & $dockerExe volume create $volume
-            if($LASTEXITCODE -ne 0){throw "Unable to prepare Docker volume: $volume"}
-        }
-        Invoke-WorkbenchCompose -Arguments @('up','-d','--wait','--wait-timeout','600')
+        Invoke-WorkbenchCompose -Arguments @('up','-d','--wait','--wait-timeout','300')
         & "$PSScriptRoot\Manage-BrowserTools.ps1" -Action Start
+        & "$PSScriptRoot\Start-Actuator.ps1"
         Write-Output 'SGUI is ready: http://127.0.0.1:8778/workbench . Use your existing platform account.'
-        Write-Output 'Start the optional fixed-step UI actuator separately; see readme.md.'
     }
     'Stop' {
         & "$PSScriptRoot\Manage-BrowserTools.ps1" -Action Stop
+        & "$PSScriptRoot\Stop-Actuator.ps1"
         Invoke-WorkbenchCompose -Arguments @('stop')
     }
     'Status' {

@@ -2,9 +2,21 @@ import unittest
 from types import SimpleNamespace
 from langchain_core.messages import ToolMessage
 from orchestrator_integration.execution_guard import ExecutionGuardMiddleware, tool_failed
+from orchestrator_integration.execution_guard import tool_error_detail, execution_tool_budget, guarded_execution_middleware
+from testcases.execution_tracking import parse_report
 
 
 class ExecutionGuardTest(unittest.IsolatedAsyncioTestCase):
+    def test_frozen_step_budget_scales_but_is_always_bounded(self):
+        self.assertEqual(execution_tool_budget(), 80)
+        self.assertEqual(execution_tool_budget({'steps': 'invalid'}), 80)
+        self.assertEqual(execution_tool_budget({'steps': [{}] * 11}), 130)
+        self.assertEqual(execution_tool_budget({'steps': [{}] * 15}), 170)
+        self.assertEqual(execution_tool_budget({'steps': [{}] * 1000}), 200)
+        guard = guarded_execution_middleware([], {'steps': [{}] * 15})[0]
+        self.assertEqual(guard.max_calls, 170)
+        self.assertEqual(guard.max_failures, 3)
+
     def request(self, name="browser_click"):
         return SimpleNamespace(tool_call={"name": name, "id": "call-test"})
 
@@ -46,6 +58,36 @@ class ExecutionGuardTest(unittest.IsolatedAsyncioTestCase):
         for content in ['{"status":"error","code":"SCREENSHOT_PATH_ERROR"}', [{"type":"text","text":"### Error\nTimeout"}], "文件不存在: x.png"]:
             self.assertTrue(tool_failed(ToolMessage(content=content, tool_call_id="x")))
         self.assertFalse(tool_failed(ToolMessage(content="### Snapshot\n- text: Error reporting help", tool_call_id="x")))
+
+    async def test_obstruction_feedback_preserves_error_and_stop_reason(self):
+        guard = ExecutionGuardMiddleware()
+        async def blocked(request):
+            return ToolMessage(content=[{'type': 'text', 'text': '### Error\ncity-picker-tabs intercepts pointer events'}], tool_call_id='call-test')
+        for _ in range(3):
+            result = await guard.awrap_tool_call(self.request(), blocked)
+        self.assertTrue(tool_failed(result))
+        self.assertIn('执行恢复提示', result.content[-1]['text'])
+        report = parse_report((await guard.abefore_model({}, None))['messages'][0].content)
+        self.assertEqual(report['status'], 'blocked')
+        self.assertEqual(report['steps'], [])
+        self.assertIn('city-picker-tabs intercepts pointer events', report['summary'])
+
+    def test_diagnostics_do_not_copy_normal_page_output_or_secrets(self):
+        self.assertEqual(tool_error_detail('### Snapshot\nPrivate page text'), '')
+        message = 'Error: token=private-key https://example.org/path?password=secret'
+        detail = tool_error_detail(message)
+        self.assertNotIn('private-key', detail)
+        self.assertNotIn('password=secret', detail)
+
+    def test_balance_and_configuration_failures_are_not_retried(self):
+        from orchestrator_integration.middleware_config import _model_retry_should_retry
+        for code in (400, 401, 402, 403, 404, 422):
+            error = RuntimeError('provider failure')
+            error.status_code = code
+            self.assertFalse(_model_retry_should_retry(error))
+        error = RuntimeError('temporary unavailable')
+        error.status_code = 503
+        self.assertTrue(_model_retry_should_retry(error))
 
     async def test_agent_stops_and_persists_blocked_report(self):
         from langchain.agents import create_agent

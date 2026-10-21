@@ -167,6 +167,10 @@
               <template #icon><icon-code-block /></template>
               <a href="#" @click="checkProjectAndNavigate($event, '/testcases')">{{ caseManagementMenuLabel }}</a>
             </a-menu-item>
+            <a-menu-item key="playwright-scripts" v-if="hasTestcasesPermission">
+              <template #icon><icon-code-block /></template>
+              <a href="#" @click="checkProjectAndNavigate($event, '/playwright-scripts')">Playwright 脚本</a>
+            </a-menu-item>
             <a-menu-item key="testsuites" v-if="hasTestSuitesPermission">
               <template #icon><icon-folder /></template>
               <a href="#" @click="checkProjectAndNavigate($event, '/testsuites')">{{ suitesMenuLabel }}</a>
@@ -258,6 +262,7 @@
 </template>
 
 <script setup lang="ts">
+import { isModuleVisible } from '@/config/moduleVisibility';
 import { ref, computed, nextTick, onMounted, watch, provide } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
@@ -378,6 +383,7 @@ const activeMenu = computed(() => {
   if (path.startsWith('/ui-automation')) return 'ui-automation';
   if (path.startsWith('/testsuites')) return 'testsuites'; // 添加对测试套件路由的识别
   if (path.startsWith('/test-executions')) return 'test-executions'; // 添加对执行历史路由的识别
+  if (path.startsWith('/playwright-scripts')) return 'playwright-scripts';
   if (path.startsWith('/testcases')) return 'testcases';
   if (path.startsWith('/users')) return 'users';
   if (path.startsWith('/organizations')) return 'organizations';
@@ -414,7 +420,7 @@ const hasTestcasesPermission = computed(() => {
 });
 
 const hasTestSuitesPermission = computed(() => {
-  return authStore.hasPermission('testcases.view_testsuite');
+  return isModuleVisible('testsuites') && (authStore.hasPermission('testcases.view_testsuite'));
 });
 
 const hasTestExecutionsPermission = computed(() => {
@@ -428,29 +434,29 @@ const hasLangGraphChatPermission = computed(() => {
 });
 
 const hasApiTestingPermission = computed(() => {
-  return authStore.hasPermission('api_interfaces.view_apiinterface') ||
+  return isModuleVisible('api-testing') && (authStore.hasPermission('api_interfaces.view_apiinterface') ||
          authStore.hasPermission('api_testcases.view_apitestcase') ||
-         authStore.hasPermission('api_testtasks.view_apitesttasksuite');
+         authStore.hasPermission('api_testtasks.view_apitesttasksuite'));
 });
 
 const hasUiAutomationPermission = computed(() => {
-  return authStore.hasPermission('ui_automation.view_uimodule') ||
+  return isModuleVisible('ui-automation') && (authStore.hasPermission('ui_automation.view_uimodule') ||
          authStore.hasPermission('ui_automation.view_uipage') ||
-         authStore.hasPermission('ui_automation.view_uitestcase');
+         authStore.hasPermission('ui_automation.view_uitestcase'));
 });
 
 const hasKnowledgePermission = computed(() => {
-  return authStore.hasPermission('knowledge.view_knowledgebase');
+  return isModuleVisible('knowledge-management') && (authStore.hasPermission('knowledge.view_knowledgebase'));
 });
 
 const hasTaskCenterPermission = computed(() => {
-  return authStore.hasPermission('task_center.view_scheduledtask');
+  return isModuleVisible('task-center') && (authStore.hasPermission('task_center.view_scheduledtask'));
 });
 
 const hasFileManagementPermission = computed(() => {
-  return authStore.currentUser?.is_staff ||
+  return isModuleVisible('file-management') && (authStore.currentUser?.is_staff ||
          authStore.hasPermission('file_management.view_fileasset') ||
-         authStore.hasPermission('file_management.add_fileasset');
+         authStore.hasPermission('file_management.add_fileasset'));
 });
 
 const hasUsersPermission = computed(() => {
@@ -476,8 +482,8 @@ const hasLlmConfigsPermission = computed(() => {
 });
 
 const hasApiKeysPermission = computed(() => {
-  return authStore.hasPermission('api_keys.view_apikey') ||
-         authStore.hasPermission('llms.view_apikey');
+  return isModuleVisible('api-keys') && (authStore.hasPermission('api_keys.view_apikey') ||
+         authStore.hasPermission('llms.view_apikey'));
 });
 
 const hasMcpConfigsPermission = computed(() => {

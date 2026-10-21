@@ -18,7 +18,7 @@ for ($index = 0; $index -lt $owned.Count; $index++) {
 for ($index = $owned.Count - 1; $index -ge 0; $index--) {
     $item = Get-Process -Id $owned[$index] -ErrorAction SilentlyContinue
     $expected = $snapshot | Where-Object { $_.ProcessId -eq $owned[$index] }
-    if ($item -and $expected -and [Math]::Abs(($item.StartTime.ToUniversalTime() - $expected.CreationDate.ToUniversalTime()).TotalMilliseconds) -lt 1) {
+    if ($item -and $expected -and $item.StartTime -and $expected.CreationDate -and [Math]::Abs(($item.StartTime.ToUniversalTime() - $expected.CreationDate.ToUniversalTime()).TotalMilliseconds) -lt 1) {
         Stop-Process -Id $item.Id -ErrorAction SilentlyContinue
     }
 }

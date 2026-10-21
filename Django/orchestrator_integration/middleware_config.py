@@ -325,6 +325,10 @@ def _model_retry_should_retry(exc: Exception) -> bool:
     """记录每次模型调用失败，可重试错误继续重试。"""
     error_text = str(exc)
 
+    if getattr(exc, 'status_code', None) in (400, 401, 402, 403, 404, 422):
+        logger.warning('ModelRetryMiddleware: permanent HTTP failure %s; no retry.', exc.status_code)
+        return False
+
     if _is_content_audit_error(exc):
         logger.warning(
             "ModelRetryMiddleware: 内容审核拦截，不重试。error=%s",

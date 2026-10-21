@@ -13,7 +13,7 @@
         <a-space>
           <a-input
             v-model="searchKeyword"
-            placeholder="搜索套件名称"
+            placeholder="搜索执行任务名称"
             allow-clear
             style="width: 300px;"
             @change="handleSearch"
@@ -36,6 +36,9 @@
             <a-option value="completed">已完成</a-option>
             <a-option value="failed">失败</a-option>
             <a-option value="cancelled">已取消</a-option>
+            <a-option value="blocked">阻塞</a-option>
+            <a-option value="skipped">未触发／不适用</a-option>
+            <a-option value="error">系统错误</a-option>
           </a-select>
 
           <a-button @click="handleRefresh">
@@ -51,7 +54,9 @@
       <a-table
         :data="executionData"
         :loading="loading"
-        :pagination="false"
+        :pagination="pagination"
+        @page-change="(page: number) => { pagination.current = page; fetchExecutions(); }"
+        @page-size-change="(size: number) => { pagination.pageSize = size; handleSearch(); }"
         :columns="columns"
         row-key="id"
         stripe
@@ -60,7 +65,7 @@
         <!-- 套件名称 -->
         <template #suite="{ record }">
           <a-tooltip :content="record.suite_detail?.description || '无描述'">
-            <span class="suite-name">{{ record.suite_detail?.name || '-' }}</span>
+            <span class="suite-name">{{ record.display_name || record.suite_detail?.name || '-' }}</span>
           </a-tooltip>
         </template>
 
@@ -74,7 +79,10 @@
         <!-- 统计 -->
         <template #statistics="{ record }">
           <div class="statistics">
-            <a-tag color="blue">总数: {{ record.total_count }}</a-tag>
+            <a-tag v-if="record.blocked_count" color="gold">阻塞: {{ record.blocked_count }}</a-tag>
+            <a-tag v-if="record.cancelled_count" color="gray">取消: {{ record.cancelled_count }}</a-tag>
+            <a-tag v-if="record.skipped_count" color="cyan">未触发／跳过: {{ record.skipped_count }}</a-tag>
+            <a-tag color="blue">本次用例数: {{ record.total_count }}</a-tag>
             <a-tag color="green">通过: {{ record.passed_count }}</a-tag>
             <a-tag v-if="record.failed_count > 0" color="red">失败: {{ record.failed_count }}</a-tag>
             <a-tag v-if="record.error_count > 0" color="orange">错误: {{ record.error_count }}</a-tag>
@@ -85,7 +93,7 @@
         <template #pass-rate="{ record }">
           <div class="pass-rate">
             <a-progress
-              :percent="record.pass_rate"
+              :percent="record.pass_rate / 100"
               :color="getPassRateColor(record.pass_rate)"
               :show-text="false"
               size="small"
@@ -115,7 +123,7 @@
             </a-button>
             
             <a-button
-              v-if="record.status === 'running'"
+              v-if="['running', 'pending'].includes(record.status)"
               type="outline"
               status="warning"
               size="small"
@@ -150,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, reactive, computed, watch, onUnmounted } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
 import {
   IconSearch,
@@ -187,6 +195,7 @@ const modalVisible = computed({
 });
 
 const loading = ref(false);
+const pagination = reactive({ current: 1, pageSize: 10, total: 0, showTotal: true, showPageSize: true });
 const searchKeyword = ref('');
 const statusFilter = ref('');
 const executionData = ref<TestExecution[]>([]);
@@ -228,13 +237,14 @@ const fetchExecutions = async () => {
     const response = await getTestExecutionList(props.currentProjectId, {
       search: searchKeyword.value,
       ordering: '-created_at',
+      status: statusFilter.value || undefined,
+      page: pagination.current,
+      page_size: pagination.pageSize,
     });
 
     if (response.success && response.data) {
-      // 筛选状态
-      executionData.value = statusFilter.value
-        ? response.data.filter(item => item.status === statusFilter.value)
-        : response.data;
+      executionData.value = response.data;
+      pagination.total = response.total ?? response.data.length;
     } else {
       Message.error(response.error || '获取执行历史失败');
       executionData.value = [];
@@ -250,6 +260,7 @@ const fetchExecutions = async () => {
 
 // 搜索处理
 const handleSearch = () => {
+  pagination.current = 1;
   fetchExecutions();
 };
 
@@ -270,7 +281,7 @@ const handleCancel = (execution: TestExecution) => {
 
   Modal.confirm({
     title: '确认取消',
-    content: `确定要取消 "${execution.suite_detail?.name}" 的执行吗?`,
+    content: `确定要取消 "${execution.display_name || execution.suite_detail?.name}" 的执行吗?`,
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
@@ -301,7 +312,7 @@ const handleDelete = (execution: TestExecution) => {
 
   Modal.confirm({
     title: '确认删除',
-    content: `确定要删除测试套件"${execution.suite_detail?.name}"的执行记录吗？此操作不可恢复。`,
+    content: `确定要删除测试套件"${execution.display_name || execution.suite_detail?.name}"的执行记录吗？此操作不可恢复。`,
     okText: '确认删除',
     cancelText: '取消',
     okButtonProps: {
@@ -331,7 +342,7 @@ const getStatusColor = (status: string) => {
     running: 'blue',
     completed: 'green',
     failed: 'red',
-    cancelled: 'orange',
+    cancelled: 'orange', blocked: 'gold', error: 'orangered', skipped: 'cyan',
   };
   return colors[status] || 'gray';
 };
@@ -343,7 +354,7 @@ const getStatusText = (status: string) => {
     running: '执行中',
     completed: '已完成',
     failed: '失败',
-    cancelled: '已取消',
+    cancelled: '已取消', blocked: '阻塞', error: '系统错误', skipped: '未触发／不适用',
   };
   return texts[status] || status;
 };
@@ -374,7 +385,7 @@ const startRefresh = () => {
   // 每10秒刷新一次
   refreshInterval = window.setInterval(() => {
     // 只有当有任务在执行中时才刷新
-    const hasRunningTasks = executionData.value.some(e => e.status === 'running');
+    const hasRunningTasks = executionData.value.some(e => ['running', 'pending'].includes(e.status));
     if (hasRunningTasks) {
       fetchExecutions();
     } else {

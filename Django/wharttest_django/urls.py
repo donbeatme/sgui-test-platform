@@ -141,6 +141,7 @@ projects_router.register(r'files', FileAssetViewSet, basename='project-files')
 
 # 定义根 URL 路由表。
 urlpatterns = [
+    path('api/', include('playwright_scripts.urls')),
     # 挂载 Django Admin。
     path("admin/", admin.site.urls),
     # 挂载 JWT 获取接口。

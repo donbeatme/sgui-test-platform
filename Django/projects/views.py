@@ -259,7 +259,7 @@ class ProjectViewSet(BaseModelViewSet):
         )
 
         # 2. 测试执行统计（最近的执行汇总）
-        executions = TestExecution.objects.filter(suite__project=project)
+        executions = TestExecution.objects.filter(project=project)
         execution_stats = executions.aggregate(
             total_executions=Count('id'),
             total_passed=Count('id', filter=Q(status='completed')),
@@ -282,6 +282,8 @@ class ProjectViewSet(BaseModelViewSet):
             total_failed_cases=Sum('failed_count'),
             total_skipped_cases=Sum('skipped_count'),
             total_error_cases=Sum('error_count'),
+            total_blocked_cases=Sum('blocked_count'),
+            total_cancelled_cases=Sum('cancelled_count'),
             total_cases=Sum('total_count'),
         )
 
@@ -398,6 +400,8 @@ class ProjectViewSet(BaseModelViewSet):
                     'failed': execution_result_totals['total_failed_cases'] or 0,
                     'skipped': execution_result_totals['total_skipped_cases'] or 0,
                     'error': execution_result_totals['total_error_cases'] or 0,
+                    'blocked': execution_result_totals['total_blocked_cases'] or 0,
+                    'cancelled': execution_result_totals['total_cancelled_cases'] or 0,
                 },
             },
             'execution_trend': {

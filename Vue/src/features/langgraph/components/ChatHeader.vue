@@ -2,7 +2,7 @@
   <div class="chat-header-container">
     <div class="chat-header">
       <div class="chat-actions">
-        <div class="kb-toggle">
+        <div v-if="isModuleVisible('knowledge-management')" class="kb-toggle">
           <span class="kb-icon">📚</span>
           <span class="toggle-label">{{ text.knowledgeBase }}</span>
           <a-switch
@@ -73,7 +73,7 @@
       </div>
     </div>
 
-    <div v-if="useKnowledgeBase" class="kb-settings-panel">
+    <div v-if="isModuleVisible('knowledge-management') && useKnowledgeBase" class="kb-settings-panel">
       <KnowledgeBaseSelector
         :project-id="projectId"
         :use-knowledge-base="useKnowledgeBase"
@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { isModuleVisible } from '@/config/moduleVisibility';
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { Button as AButton, Tag as ATag, Switch as ASwitch, Select as ASelect, Option as AOption } from '@arco-design/web-vue';

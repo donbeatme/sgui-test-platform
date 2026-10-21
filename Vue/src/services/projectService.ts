@@ -606,6 +606,8 @@ export interface ProjectStatistics {
       failed: number;
       skipped: number;
       error: number;
+      blocked: number;
+      cancelled: number;
     };
   };
   execution_trend: {

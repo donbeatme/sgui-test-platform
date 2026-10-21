@@ -534,6 +534,14 @@ export async function sendChatMessageStream(
         try {
           const parsed = JSON.parse(jsonData);
 
+          if (parsed.type === 'execution_result' && streamSessionId && activeStreams.value[streamSessionId]) {
+            const labels: Record<string, string> = {pass: '通过', fail: '断言失败', blocked: '阻塞', error: '系统错误', cancelled: '已取消'};
+            activeStreams.value[streamSessionId].messages.push({
+              type: 'system', time: formatStreamTime(),
+              content: `正式执行记录 #${parsed.execution_id}：${labels[parsed.status] || parsed.status}。请到“执行历史”查看本轮步骤、日志和截图；首页按此记录统计。`
+            });
+          }
+
           if (parsed.type === 'error') {
             handleError(new Error(parsed.message || '流式请求失败'), streamSessionId);
             return;

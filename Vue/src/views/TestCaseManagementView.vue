@@ -239,7 +239,7 @@ const taskText = computed(() => (
         viewGenerationProgress: '点此查看生成过程',
         executionStarted: '执行已开始',
         executionStartedContent: '测试用例执行任务已在后台开始处理。',
-        executionStartedWithGenerationContent: '测试用例执行任务已在后台开始处理，执行完成后将继续生成 UI 自动化用例。',
+        executionStartedWithGenerationContent: '用例执行已开始。结束后将在「Playwright 脚本」中整理并保存本次操作代码。',
         viewExecutionProgress: '点此查看执行进度',
         optimizationStarted: '优化已开始',
         optimizationStartedContent: '用例优化任务已在后台开始处理。',
