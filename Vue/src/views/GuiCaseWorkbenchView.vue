@@ -37,7 +37,7 @@
                     <strong><icon-image /> UI 界面截图 <a-tag size="small" color="blue">可选</a-tag></strong><p>JPG / PNG / WebP · 最多 {{ imageLimit }} 张 · 单张 ≤ {{ limits.image_bytes / MB }} MB</p>
                     <input ref="imagePicker" class="gc-hidden-picker" aria-label="上传界面截图" type="file" multiple accept="image/png,image/jpeg,image/webp" :disabled="busy" @change="pickFiles($event, 'images')" />
                     <div class="gc-upload-tools"><a-button :disabled="busy" @click="imagePicker?.click()"><icon-plus /> {{ images.length ? '继续添加图片' : '选择界面图片' }}</a-button><a-button v-if="images.length" type="text" :disabled="busy" @click="clearSelectedImages">清空图片</a-button></div>
-                    <p>图片按每批最多 {{ limits.vision_batch_size }} 张依次解析，完成的批次会保存，可从断点继续。全部分析结果一起用于 AI 模块规划；图片越多，生成时间和模型调用量越大。</p>
+                    <p v-if="imageAnalysis==='perception_v1'">独立感知模块逐张识别并保存进度。完成后在“图片控件检查”对照原图核对，再继续生成用例。</p><p v-else>图片按每批最多 {{ limits.vision_batch_size }} 张依次解析，完成的批次会保存，可从断点继续。全部分析结果一起用于 AI 模块规划；图片越多，生成时间和模型调用量越大。</p>
                     <div class="gc-images"><div v-for="(img, index) in imagePreviews" :key="img.url"><img :src="img.url" :alt="img.name" loading="lazy" decoding="async" /><small :title="img.name">{{ img.name }}</small><a-button type="text" status="danger" size="mini" :disabled="busy" :aria-label="`移除图片 ${img.name}`" @click="removeImage(index)">移除</a-button></div></div>
                   </div>
                 </div>
@@ -51,14 +51,30 @@
                 <a-form-item label="需求说明（可选）"><a-textarea v-model="requirement" :disabled="busy" placeholder="已有需求文档时可留空；也可补充测试范围、重点或限制。没有文档时，可直接在这里输入需求。" :auto-size="{minRows: 4, maxRows: 12}" :max-length="limits.text_chars" show-word-limit /></a-form-item>
                 <div class="gc-section-heading gc-section-divider"><span>03</span><div><h2>选择生成设置</h2><p>为文字与图片选择对应模型，也可以沿用当前配置。</p></div></div>
                 <a-form-item label="生成方式"><a-select v-model="generationProfile" :disabled="busy" :options="[{value:'scenario',label:'场景演示 · 最多两条完整流程'},{value:'workflow',label:'业务流程与边界（推荐）'},{value:'quick',label:'快速试生成 · 少量代表性流程'},{value:'detailed',label:'按功能模块细分'}]" /><template #extra>{{ generationProfile==='scenario'?'适合演示 1–2 个明确业务场景：每场景一条连续流程，最多 6 张相关图片，文档与原图一起生成并评审。材料过大时提示精简，不拆散场景；不代表全面覆盖。':generationProfile==='quick'?'适合现场试生成：少量材料、每批最多 3 条，不代表全面覆盖；仍保留原图核对与依据评审。':generationProfile==='workflow'?'以完整业务目标组织用例，同时覆盖材料支持的边界、异常恢复和组合场景。数量由材料决定，避免按每个控件拆分。':'按功能模块逐批生成，适合详细检查；材料重复引用时可能产生相近场景，需要评审去重。' }}</template></a-form-item>
+                <a-form-item label="图片控件识别方式"><a-select v-model="imageAnalysis" :disabled="busy" :options="[{value:'perception_v1',label:'独立感知模块 · OCR 与图标检测'},{value:'vision_model',label:'原有视觉模型解析'}]" /><template #extra>图片识别后先进入独立的“图片控件检查”，核对后沿用原有用例生成与结果功能。</template></a-form-item>
                 <div class="gc-two-col gc-space-top">
                   <a-form-item label="文字生成模型"><a-select v-model="textModelId" allow-clear placeholder="沿用阶段设置 / 当前激活模型" :options="modelOptions" /></a-form-item>
-                  <a-form-item label="图片解析模型"><a-select v-model="visionModelId" allow-clear placeholder="选择支持图片输入的模型" :options="visionModelOptions" /></a-form-item>
+                  <a-form-item v-if="imageAnalysis==='vision_model'" label="图片解析模型"><a-select v-model="visionModelId" allow-clear placeholder="选择支持图片输入的模型" :options="visionModelOptions" /></a-form-item>
                 </div>
-                <a-alert v-if="(images.length || withDocumentImages) && !visionModelOptions.length" type="warning">尚无支持图片输入的模型。请在系统管理 → 模型配置中添加视觉模型，再使用图片生成。</a-alert>
+                <a-alert v-if="imageAnalysis==='vision_model' && (images.length || withDocumentImages) && !visionModelOptions.length" type="warning">尚无支持图片输入的模型。请在系统管理 → 模型配置中添加视觉模型，再使用图片生成。</a-alert>
                 <a-form-item v-if="isModuleVisible('knowledge-management')" label="补充知识库（可选）"><a-select v-model="knowledgeBaseId" allow-clear placeholder="选择当前项目的知识库" :options="knowledgeOptions" /></a-form-item>
               </a-form>
               <div class="gc-actions"><span aria-live="polite">{{ busy ? '正在上传并解析材料，请稍候…' : !hasGenerationInput?'请先选择需求文档、上传图片或填写需求说明，至少提供一种。':'含图片时先核对识别控件，再继续生成。仅文档或文字任务直接生成。' }}</span><a-space wrap><a-button :disabled="busy" @click="fillExample">填入文字示例</a-button><a-button type="primary" :loading="busy" :disabled="busy||!hasGenerationInput||imageLimitExceeded" @click="generate"><icon-thunderbolt /> {{ images.length||withDocumentImages?'识别图片并准备生成':'生成用例草稿' }}</a-button></a-space></div>
+            </div>
+          </a-tab-pane>
+          <a-tab-pane key="controls" title="图片控件检查">
+            <div class="gc-pane">
+              <div class="gc-section-heading"><span>02</span><div><h2>图片控件检查</h2><p>对照原图检查识别出的控件，保存核对结果后继续生成用例。</p></div></div>
+              <a-empty v-if="!job?.images?.length" description="请在“需求与图片”上传截图并开始识别；仅文字或文档任务无需此步骤。" />
+              <template v-else>
+                <div class="gc-result-heading"><div><h2>{{ job.title }}</h2><p>{{ job.stage }}</p></div><a-tag :color="statusColor(job.status)">{{ statusLabel(job.status) }}</a-tag></div>
+                <a-alert v-if="running" type="info"><a-spin /> 正在识别图片，完成后会保留原图和控件清单供你核对。<a-button type="text" @click="cancelJob">取消后续处理</a-button></a-alert>
+                <a-alert v-if="job.status==='awaiting_controls'" type="warning" class="gc-space-top">请逐张核对控件。保存后点击“按核对结果继续生成”，将在“用例结果”查看后续生成内容。</a-alert>
+                <p v-if="job.progress?.vision?.image_total" class="gc-material-summary" aria-live="polite">已识别 {{ job.progress.vision.image_done }}/{{ job.progress.vision.image_total }} 张图片 · {{ controlCount }} 个有效控件。</p>
+                <a-alert v-if="job.status==='failed'||job.status==='cancelled'" type="warning" class="gc-space-bottom">{{ job.progress?.last_error||'任务未完成，已保存完成的识别结果。' }}<a-button v-if="job.progress?.resumable" type="text" :loading="busy" @click="resumeJob">从断点继续</a-button></a-alert>
+                <ImageControlPanel :key="job.id" :items="job.control_images||[]" :images="job.images" :editable="job.status==='awaiting_controls'" :busy="busy" @save="saveControls" @dirty="controlsDirty=$event" @open="editCase" />
+                <a-button v-if="job.cases.length" class="gc-space-top" @click="tab='draft'">查看用例结果</a-button>
+              </template>
             </div>
           </a-tab-pane>
           <a-tab-pane key="draft" title="用例结果">
@@ -74,13 +90,12 @@
                   <button :disabled="!job.progress?.coverage?.evidence" :class="{active:reviewSection==='coverage'}" @click="showReview('coverage')"><strong>覆盖检查</strong><small>关联情况 / 疑似遗漏</small></button>
                 </nav>
                 <a-alert v-if="running" type="info"><a-spin /> 后台正在处理，离开页面后任务会继续。<a-button type="text" @click="cancelJob">取消后续处理</a-button></a-alert>
-                <a-alert v-if="job.status==='awaiting_controls'" type="warning" class="gc-space-top">图片识别已完成，任务正在等待你核对控件。点击上方“图片控件”，逐张检查后点击“按核对结果继续生成”。等待期间不占用生成工作进程。</a-alert>
+                <a-alert v-if="job.status==='awaiting_controls'" type="warning" class="gc-space-top">图片识别已完成，任务正在等待你核对控件。请前往“图片控件检查”，逐张检查后点击“按核对结果继续生成”。等待期间不占用生成工作进程。</a-alert>
                 <p v-if="job.progress?.vision?.image_total" class="gc-material-summary" aria-live="polite">图片解析已完成 {{ job.progress.vision.image_done }}/{{ job.progress.vision.image_total }} 张<span v-if="job.progress.vision.batch_total"> · {{ job.progress.vision.batch_done }}/{{ job.progress.vision.batch_total }} 批</span>。完成的分析已保存，后续统一规划业务模块。</p>
                 <SourceExtractionPanel :progress="job.progress?.source_extraction" />
                 <a-alert v-if="job.status === 'failed' || job.status === 'cancelled'" type="warning" class="gc-space-bottom">{{ job.progress?.last_error || '任务未完成，已保留可用进度。' }}<a-space wrap><a-button v-if="job.progress?.resumable" type="primary" :loading="busy" @click="resumeJob">从断点继续</a-button><a-button type="text" :disabled="busy" @click="restoreMaterials">调整材料后新建任务</a-button></a-space></a-alert>
                 <div ref="reviewAnchor">
-                  <ImageControlPanel v-if="job.images?.length" v-show="reviewSection==='controls'" :key="job.id" :items="job.control_images||[]" :images="job.images" :editable="job.status==='awaiting_controls'" :busy="busy" @save="saveControls" @dirty="controlsDirty=$event" @open="editCase" />
-                  <GroundingPanel v-show="reviewSection!=='controls'" :key="job.id" ref="groundingPanel" :cases="job.cases" :coverage="job.progress?.coverage?.evidence" :images="job.images || []" :editable="['draft','saved'].includes(job.status)" :busy="busy" :has-unsaved-changes="dirty" @open="editCase" @confirm="confirmBasis" @revoke="revokeBasis" />
+                  <GroundingPanel :key="job.id" ref="groundingPanel" :cases="job.cases" :coverage="job.progress?.coverage?.evidence" :images="job.images || []" :editable="['draft','saved'].includes(job.status)" :busy="busy" :has-unsaved-changes="dirty" @open="editCase" @confirm="confirmBasis" @revoke="revokeBasis" />
                 </div>
                 <a-collapse v-if="job.progress?.modules?.length" class="gc-space-top gc-space-bottom">
                   <a-collapse-item key="plan" header="AI 模块规划与生成进度">
@@ -159,7 +174,7 @@ interface Case extends GroundCase { tc_sno:string; tc_name:string; module_path:s
 interface Rule { id:string; field:string; type:string; value:unknown; level:string; enabled:boolean; message:string; [key:string]:unknown }
 interface Issues {confirmation_required?:{tc_sno:string;reasons:string[]}[];errors:number; warnings:number; duplicates:number[]; detail:{case:string;issues:{level:string;message:string}[]}[]}
 interface JobProgress {phase:string;batch_total:number;batch_done:number;resumable:boolean;last_error?:string;source_extraction?:SourceExtraction;vision?:{image_total:number;image_done:number;batch_total:number;batch_done:number};modules:{id:string;path:string;description:string;batch_total:number;batch_done:number;case_count:number}[];coverage?:{assigned_units:number;cited_units:number;evidence?:Coverage}}
-interface Job {id:string;title:string;status:string;stage:string;revision:number;cases:Case[];issues:Issues;notes:string[];saved_ids:number[];count:number;created_at:string;input?:{document_ids?:string[];text?:string};images?:{name:string;url:string}[];control_images?:ControlImage[];progress?:JobProgress;generation_profile?:string}
+interface Job {image_analysis?:string;id:string;title:string;status:string;stage:string;revision:number;cases:Case[];issues:Issues;notes:string[];saved_ids:number[];count:number;created_at:string;input?:{document_ids?:string[];text?:string};images?:{name:string;url:string}[];control_images?:ControlImage[];progress?:JobProgress;generation_profile?:string}
 interface JobProgress {model_usage?:{calls:number;seconds:number};generation_profile_label?:string}
 interface Model {id:number;config_name:string;supports_vision:boolean;is_active:boolean}
 interface Config {rules:Rule[];prompts:Record<string,string>;stages:Record<string,number|undefined>}
@@ -168,7 +183,7 @@ interface Boot {settings:Config;models:Model[];documents:ExistingDocument[];know
 const router = useRouter(), route = useRoute(), projectStore = useProjectStore(), projectId = computed(() => projectStore.currentProjectId)
 const tab=ref('input'), error=ref(''), busy=ref(false), title=ref(''), requirement=ref(''), documentIds=ref<string[]>([]), docs=ref<File[]>([]), images=ref<File[]>([])
 const textModelId=ref<number>(), visionModelId=ref<number>(), knowledgeBaseId=ref<string>(), includeDocumentImages=ref(false)
-const generationProfile=ref('workflow')
+const generationProfile=ref('workflow'),imageAnalysis=ref('perception_v1')
 const documentsVisible=ref(false)
 const documentCount=computed(()=>docs.value.length+documentIds.value.length)
 const hasGenerationInput=computed(()=>!!requirement.value.trim()||documentCount.value>0||images.value.length>0)
@@ -181,7 +196,7 @@ const configHistory=useLocalHistory(configDraft),editHistory=useLocalHistory(edi
 const settingsDirty=computed(()=>JSON.stringify(configDraft.value)!==JSON.stringify(config.value))
 const resultHeading=ref<HTMLElement>()
 const activeJourney=computed(()=>journey.findIndex(item=>item.tab===tab.value))
-async function goJourney(index:number){tab.value=journey[index]!.tab;await nextTick();if(index===1)resultHeading.value?.scrollIntoView({behavior:'smooth',block:'start'})}
+async function goJourney(index:number){tab.value=journey[index]!.tab;await nextTick();if(tab.value==='draft')resultHeading.value?.scrollIntoView({behavior:'smooth',block:'start'})}
 const caseDraft=computed({get:()=>job.value?.cases||[],set:(value:Case[])=>{if(job.value)job.value.cases=value}})
 const caseHistory=useLocalHistory(caseDraft),savedCases=ref('[]')
 watch(()=>[job.value?.id,job.value?.revision],()=>{savedCases.value=JSON.stringify(job.value?.cases||[]);caseHistory.reset(JSON.parse(savedCases.value));dirty.value=false},{flush:'sync'})
@@ -192,8 +207,8 @@ function protectControlEdits(event:BeforeUnloadEvent){if(controlsDirty.value||di
 window.addEventListener('beforeunload',protectControlEdits)
 const controlCount=computed(()=>job.value?.control_images?.reduce((n,p)=>n+p.controls.filter(c=>!c.excluded).length,0)||0)
 const pendingCases=computed(()=>job.value?.cases.filter(c=>c.confirmation_reasons?.length).length||0)
-async function showReview(section:string){reviewSection.value=section;await nextTick();if(section!=='controls')groundingPanel.value?.show(section);reviewAnchor.value?.scrollIntoView({behavior:'smooth',block:'start'})}
-watch(()=>[job.value?.id,job.value?.status],()=>{if(job.value?.status==='awaiting_controls')reviewSection.value='controls';else if(!job.value?.images?.length)reviewSection.value='cases'})
+async function showReview(section:string){if(section==='controls'){tab.value='controls';return}tab.value='draft';reviewSection.value=section;await nextTick();if(section!=='controls')groundingPanel.value?.show(section);reviewAnchor.value?.scrollIntoView({behavior:'smooth',block:'start'})}
+watch(()=>[job.value?.id,job.value?.status],()=>{if(job.value?.status==='awaiting_controls'){tab.value='controls';reviewSection.value='cases'}else if(!job.value?.images?.length)reviewSection.value='cases'})
 const imagePreviews=ref<{name:string;url:string}[]>([])
 type FileSelection={docs:File[];images:File[];ids:string[]}
 const filePast=ref<FileSelection[]>([]),fileFuture=ref<FileSelection[]>([])
@@ -219,7 +234,7 @@ const imagePicker=ref<HTMLInputElement>(), fileError=ref(''), dragging=ref('')
 const uploadBytes=computed(()=>[...docs.value,...images.value].reduce((sum,f)=>sum+f.size,0))
 const fileKey=(f:File)=>`${f.name}:${f.size}:${f.lastModified}`
 const formatSize=(bytes:number)=>bytes>=MB?`${(bytes/MB).toFixed(1)} MB`:`${Math.ceil(bytes/1024)} KB`
-const journey=[{title:'准备素材',desc:'需求文字、文档与截图',tab:'input'},{title:'生成、评审与入库',desc:'控件核对 · 用例生成 · 评审入库',tab:'draft'},{title:'沉淀与复用',desc:'生成记录 · 多格式导出',tab:'history'}]
+const journey=[{title:'准备素材',desc:'需求文字、文档与截图',tab:'input'},{title:'图片控件检查',desc:'识别控件 · 人工核对',tab:'controls'},{title:'生成、评审与入库',desc:'用例生成 · 评审入库',tab:'draft'},{title:'沉淀与复用',desc:'生成记录 · 多格式导出',tab:'history'}]
 const stages=[{key:'vision',label:'图片解析',placeholder:'沿用当前激活的视觉模型'},{key:'text',label:'文字生成',placeholder:'沿用当前激活模型'},{key:'validate',label:'依据评审',placeholder:'自动选择生成模型；图片任务使用视觉模型'},{key:'automation',label:'自动化建议（可选）',placeholder:'关闭，直接配置自动化执行器'}]
 const prompts=[{key:'vision',label:'图片解析提示词'},{key:'vision_page',label:'逐页图片分析提示词'},{key:'text',label:'用例生成提示词'},{key:'validate',label:'AI 评审提示词'},{key:'automation',label:'自动化建议提示词'}]
 const actions=['navigate','click','input','select','check','upload','hover','wait','assert','screenshot']
@@ -272,7 +287,7 @@ function restoreMaterials(){
   tab.value='input';error.value='';fileError.value=''
 }
 function startNew(){if(dirty.value){Message.warning('请先保存或放弃草稿修改');return}if(controlsDirty.value){Message.warning('请先在图片控件中保存核对进度，再新建任务');return}job.value=undefined;dirty.value=false;caseSearch.value='';tab.value='input';error.value=''}
-async function saveControls(images:ControlPayload[],proceed:boolean){await guarded(async()=>{if(!job.value)return;const pid=projectId.value,jid=job.value.id;const result=await api<Job>(`jobs/${jid}/${proceed?'continue-controls':'controls'}/`,{revision:job.value.revision,images},pid);if(pid!==projectId.value||job.value?.id!==jid)return;job.value=result;controlsDirty.value=false;if(proceed)reviewSection.value='cases';await boot();Message.success(proceed?'已提交，将按核对后的控件继续生成':'控件核对进度已保存')})}
+async function saveControls(images:ControlPayload[],proceed:boolean){await guarded(async()=>{if(!job.value)return;const pid=projectId.value,jid=job.value.id;const result=await api<Job>(`jobs/${jid}/${proceed?'continue-controls':'controls'}/`,{revision:job.value.revision,images},pid);if(pid!==projectId.value||job.value?.id!==jid)return;job.value=result;controlsDirty.value=false;if(proceed){reviewSection.value='cases';tab.value='draft'}await boot();Message.success(proceed?'已提交，将按核对后的控件继续生成':'控件核对进度已保存')})}
 function fillExample(){title.value='登录与权限验收';requirement.value='被测系统：本地 SGUI，http://127.0.0.1:8778/login。\nR1：打开登录页后直接显示用户名和密码输入框及“进入工作台”按钮。\nR2：正确账号与密码可登录，进入工作台。\nR3：错误密码应显示失败提示，不创建登录状态。\nR4：用户名或密码为空时阻止提交并提示必填。\nR5：退出登录后访问需要认证的页面应跳转登录页。\n请生成 5 条测试用例，覆盖以上规则。测试数据使用占位名称，不包含真实密码。'}
 async function generate(){await guarded(async()=>{
   if(controlsDirty.value||dirty.value)throw new Error('请先保存或放弃当前未保存修改，再生成新任务。')
@@ -282,16 +297,17 @@ async function generate(){await guarded(async()=>{
   if(uploadBytes.value>limits.value.upload_bytes)throw new Error(`本次上传文件合计不能超过 ${limits.value.upload_bytes/MB} MB。`)
   const pid=projectId.value, form=new FormData()
   form.append('generation_profile',generationProfile.value)
+  form.append('image_analysis',imageAnalysis.value)
   form.append('title',title.value.trim());form.append('text',requirement.value.trim());form.append('document_ids',JSON.stringify(documentIds.value));form.append('include_document_images',String(withDocumentImages.value))
   if(textModelId.value)form.append('text_model_id',String(textModelId.value));if(visionModelId.value)form.append('vision_model_id',String(visionModelId.value));if(knowledgeBaseId.value)form.append('knowledge_base_id',knowledgeBaseId.value)
   docs.value.forEach(f=>form.append('docs',f));images.value.forEach(f=>form.append('images',f))
   const result=await api<Job>('generate/',form,pid);if(pid!==projectId.value)return
-  job.value=result;dirty.value=false;tab.value='draft'
+  job.value=result;dirty.value=false;tab.value=result.images?.length?'controls':'draft'
   if(result.input?.document_ids){documentIds.value=result.input.document_ids;docs.value=[]}
   filePast.value=[];fileFuture.value=[]
   await boot()
 })}
-async function openJob(id:string){if(dirty.value){Message.warning('请先保存或放弃草稿修改');return}if(controlsDirty.value){Message.warning('请先保存图片控件的核对进度');return}await guarded(async()=>{const pid=projectId.value;const data=await api<Job>(`jobs/${id}/`,undefined,pid);if(pid!==projectId.value)return;job.value=data;dirty.value=false;tab.value='draft';reviewSection.value=data.status==='awaiting_controls'?'controls':'cases'})}
+async function openJob(id:string){if(dirty.value){Message.warning('请先保存或放弃草稿修改');return}if(controlsDirty.value){Message.warning('请先保存图片控件的核对进度');return}await guarded(async()=>{const pid=projectId.value;const data=await api<Job>(`jobs/${id}/`,undefined,pid);if(pid!==projectId.value)return;job.value=data;dirty.value=false;tab.value=data.status==='awaiting_controls'?'controls':'draft';reviewSection.value='cases'})}
 async function loadPreset(){await guarded(async()=>{if(controlsDirty.value||dirty.value)throw new Error('请先保存或放弃当前未保存修改');const pid=projectId.value;const result=await api<Job>('preset/',{},pid);if(pid!==projectId.value)return;job.value=result;dirty.value=false;tab.value='draft';await boot()})}
 async function importJson(e:Event){const input=e.target as HTMLInputElement;const file=input.files?.[0];if(!file)return;await guarded(async()=>{if(controlsDirty.value||dirty.value)throw new Error('请先保存或放弃当前未保存修改');if(file.size>10*1024*1024)throw new Error('JSON 文件最多 10 MB');const pid=projectId.value;const result=await api<Job>('import/',{payload:JSON.parse(await file.text()),title:file.name},pid);if(pid!==projectId.value)return;job.value=result;dirty.value=false;tab.value='draft';await boot()});input.value=''}
 async function persistDraft(){if(!job.value||job.value.status!=='draft')return;const pid=projectId.value,id=job.value.id;const result=await api<Job>(`jobs/${id}/draft/`,{cases:job.value.cases,revision:job.value.revision},pid);if(pid!==projectId.value||id!==job.value?.id)return;job.value=result;dirty.value=false}

@@ -49,3 +49,22 @@ class GuidedBrowserTests(unittest.TestCase):
                                          'headless': True}, Path('.')))
         self.assertEqual(result['status'], 'blocked')
         planner.assert_not_called()
+
+    def test_variables_survive_batches_and_conditions_match_standalone_execution(self):
+        async def respond(folder, request):
+            if request['seq'] == 0:
+                return {'command': {'parameters': {}, 'statements': ['button = page.locator("#open")',
+                    'panel = page.locator("#menu")']}}
+            if request['seq'] == 1:
+                self.assertTrue(all(o['ok'] for o in request['outcomes']))
+                return {'command': {'parameters': {}, 'statements': [
+                    'if await button.is_visible():\n    await button.click()',
+                    'await page.get_by_role("button", name="Premium", exact=True).click()',
+                    'choice = await page.locator("#chosen").inner_text()',
+                    'assert choice == "Premium", "Unexpected choice"']}}
+            self.assertTrue(all(o['ok'] for o in request['outcomes']), request['outcomes'])
+            return {'finished': True}
+        with patch('script_guided.exchange', respond):
+            result = asyncio.run(execute({'base_url': f'http://127.0.0.1:{self.server.server_port}/custom-fields',
+                                         'headless': True}, Path('.')))
+        self.assertEqual(result['status'], 'pass')

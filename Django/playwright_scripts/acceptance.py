@@ -2,6 +2,16 @@
 REPLAY_ONCE = 'replay_once'
 
 
+def reduced_motion_version(version):
+    if version.origin != 'guided':
+        return False
+    if not hasattr(version, '_reduced_motion'):
+        lists = version.script.builds.filter(observation__motion_policy='reduced').values_list(
+            'observation__acceptance_versions', flat=True)
+        version._reduced_motion = any(version.pk in (ids or []) for ids in lists)
+    return version._reduced_motion
+
+
 def basic_build(build):
     return (build.observation or {}).get('acceptance') == REPLAY_ONCE
 

@@ -114,7 +114,7 @@ class ScriptWorker:
         async with httpx.AsyncClient(timeout=20) as client:
             while not self.consumer._stop_event.is_set():
                 try:
-                    result = await self.post(client, 'claim', {'supports_headed': not should_force_headless(), 'runtime_version': 9})
+                    result = await self.post(client, 'claim', {'supports_headed': not should_force_headless(), 'runtime_version': 11})
                     if result.get('job'):
                         await self.execute(client, result['job'])
                 except Exception as exc:

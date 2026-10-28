@@ -51,6 +51,19 @@ class ReplayTests(TestCase):
     def run_script(self):
         return self.payload(self.client.post(self.base+f'{self.script.pk}/run/', {'version': self.version.pk, 'worker_id': self.worker.worker_id}, format='json'), 201)
 
+    def test_download_archive_uses_non_reserved_format_parameter(self):
+        import zipfile
+        response = self.client.get(self.base+f'{self.script.pk}/download/',
+            {'version': self.version.pk, 'download_format': 'zip'})
+        self.assertEqual(response.status_code, 200, response.content[:300])
+        self.assertEqual(response['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            self.assertIn('case.py', archive.namelist())
+        response = self.client.get(self.base+f'{self.script.pk}/download/',
+            {'version': self.version.pk, 'download_format': 'py'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('async def run', response.content.decode())
+
     def claim(self):
         return self.payload(self.client.post('/api/playwright-worker/claim/', {'worker_id': self.worker.worker_id, 'supports_headed': True}, format='json'))['job']
 

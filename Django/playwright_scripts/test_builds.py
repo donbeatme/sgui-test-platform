@@ -23,7 +23,7 @@ class BuildTests(TestCase):
         self.script.generation_mode = 'case'
         self.script.generation_context = {'base_url':'http://localhost:8765'}
         self.script.save()
-        self.worker.runtime_version = 9; self.worker.save()
+        self.worker.runtime_version = 11; self.worker.save()
         options = options_for({'validate_live':True, 'worker_id':self.worker.worker_id}, self.user)
         options['strategy'] = 'legacy'  # Existing builds keep their original protocol.
         return start_build(self.script, self.user, options)
@@ -54,7 +54,7 @@ class BuildTests(TestCase):
         self.assertIsNone(options_for({}, self.user))
         with self.assertRaises(ValidationError):
             options_for({'validate_live':True, 'worker_id':self.worker.worker_id}, self.user)
-        self.worker.runtime_version=9; self.worker.save()
+        self.worker.runtime_version=11; self.worker.save()
         self.assertEqual(options_for({'validate_live':True,'worker_id':self.worker.worker_id},self.user)['timeout_seconds'],180)
         self.worker.heartbeat_at=timezone.now()-timedelta(minutes=1);self.worker.save()
         with self.assertRaises(ValidationError):

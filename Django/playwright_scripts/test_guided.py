@@ -98,6 +98,29 @@ class GuidedTests(TestCase):
         self.assertEqual(fragment_statements('await page.locator("#a").click()', 1, {}),
                          ["await page.locator('#a').click()"])
 
+    def test_practical_generation_keeps_python_locals_between_steps(self):
+        self.start()
+        self.next(0)
+        self.script.snapshot['steps'].append({'step_number': 2, 'description': '确认原值保持', 'expected_result': '字段值不变'})
+        self.script.save()
+        self.build.refresh_from_db()
+        self.build.observation.update(strategy='guided-v3', acceptance='replay_once')
+        self.build.observation['guided'].update(step_index=1, accepted={
+            '1': ['await page.goto(params["base_url"])', 'before = await page.locator("#x").input_value()'], '2': []})
+        self.build.save()
+        with patch('guicase_workbench.tasks.invoke', return_value=json.dumps({
+                'body': 'await expect(page.locator("#x")).to_have_value(before)',
+                'parameters': {}, 'complete': True})) as invoke, \
+             patch('langgraph_integration.models.LLMConfig.objects.get'):
+            plan(self.build.pk, self.job['lease_token'], 0)
+        context = json.loads(invoke.call_args.args[2])
+        self.assertEqual(context['available_variables']['before'], 'scalar')
+        self.assertNotIn('obligations', context)
+        self.build.refresh_from_db()
+        command = self.build.observation['guided']['command']
+        self.assertTrue(command['complete'])
+        self.assertEqual(command['statements'], ["await expect(page.locator('#x')).to_have_value(before)"])
+
     def test_broker_failure_ends_generation_without_delivering_draft(self):
         self.start()
         with patch('playwright_scripts.guided.plan.delay', side_effect=RuntimeError('broker offline')):

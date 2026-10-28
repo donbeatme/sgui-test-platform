@@ -41,7 +41,7 @@ def options_for(request_data, user):
     if request_data.get('validate_live', False) is not True:
         return None
     worker_id = request_data.get('worker_id', '')
-    worker = ScriptWorker.objects.filter(worker_id=worker_id, user=user, runtime_version__gte=9,
+    worker = ScriptWorker.objects.filter(worker_id=worker_id, user=user, runtime_version__gte=11,
         heartbeat_at__gt=timezone.now() - timedelta(seconds=30)).first()
     if not worker:
         raise ValidationError('实测生成需要在线的新版执行器，请启动或更新执行器后重试。')
@@ -51,7 +51,7 @@ def options_for(request_data, user):
         raise ValidationError('该执行器不支持当前浏览器显示模式。')
     if type(timeout) is not int or not 30 <= timeout <= 600:
         raise ValidationError('每次实测超时须为 30–600 秒。')
-    return {'worker_id': worker_id, 'headless': headless, 'timeout_seconds': timeout, 'strategy': 'guided-v2'}
+    return {'worker_id': worker_id, 'headless': headless, 'timeout_seconds': timeout, 'strategy': 'guided-v3'}
 
 
 @transaction.atomic
@@ -66,8 +66,10 @@ def start_build(script, user, options):
     settings = dict(options)
     strategy = settings.pop('strategy', 'legacy')
     observation = {'strategy': strategy}
-    if strategy == 'guided-v2':
+    if strategy in ('guided-v2', 'guided-v3'):
         observation['acceptance'] = REPLAY_ONCE
+    if strategy == 'guided-v3':
+        observation['motion_policy'] = 'reduced'
     return ScriptBuild.objects.create(script=script, requester=user,
         observation=observation, **settings)
 

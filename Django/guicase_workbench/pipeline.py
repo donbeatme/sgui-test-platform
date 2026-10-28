@@ -115,6 +115,45 @@ class Runner:
         self.job.notes.extend(notes)
         self.save()
 
+    def enrich_perception(self, assets):
+        """Run one local OCR/OmniParser image per checkpoint."""
+        from . import perception_client
+        batches = self.state.setdefault('vision_batches', [
+            {'id': f'P{i + 1:03d}', 'start': i, 'end': i + 1}
+            for i in range(len(assets))])
+        outputs = self.state.setdefault('vision_outputs', {})
+        artifacts = self.state.setdefault('perception_artifacts', {})
+        for index, batch in enumerate(batches, 1):
+            if batch['id'] in outputs:
+                continue
+            asset = assets[batch['start']]
+            label = f'本地感知识别 · {index}/{len(batches)} 张 · {asset["name"]}'
+            self.stage(label)
+            self.check()
+            started = time.monotonic()
+            result = perception_client.recognize(asset)
+            self.state.setdefault('perception_calls', []).append({
+                'image': asset['name'], 'seconds': round(time.monotonic() - started, 1), 'outcome': 'ok'})
+            page = controls.page_from_perception(result, asset['name'])
+            unlocated = [c['name'] for c in page['controls'] if c['bbox'] is None]
+            if unlocated:
+                self.job.notes.append(
+                    f'{asset["name"]}：{len(unlocated)} 个感知识别元素没有有效位置，请在图片控件核对中重新框选。')
+            ids = self.add_material(asset['name'], json.dumps(page, ensure_ascii=False), 'vision', [asset['name']])
+            units = [u for u in self.state['units'] if u['id'] in ids]
+            ground.attach_evidence(units[0], page['facts'], page['unknowns'])
+            controls.initialize_unit(units[0], page, origin='perception')
+            for unit in units[1:]:
+                ground.attach_evidence(unit, [], [])
+            artifacts[batch['id']] = perception_client.store_result(self.job, index, result)
+            outputs[batch['id']] = ids
+            self.save()
+            return
+        self.state['vision_done'] = True
+        self.job.notes.append(
+            f'已用独立感知模块完成 {len(assets)} 张截图识别；原始五分区结果已保存，生成将使用人工核对后的控件。')
+        self.save()
+
     def enrich(self):
         from .tasks import resolve_model
         data, options = self.job.input, self.job.options
@@ -128,6 +167,10 @@ class Runner:
             self.add_material('知识库检索结果', json.dumps(results, ensure_ascii=False, default=str), 'knowledge')
             self.state['knowledge_done'] = True
             self.save()
+        if (data.get('images') and not self.state.get('vision_done')
+                and options.get('image_analysis') == 'perception_v1'):
+            self.enrich_perception(data['images'])
+            return
         if data.get('images') and not self.state.get('vision_done'):
             config = resolve_model(options, 'vision', True)
             # Freeze the batch boundaries so retries reuse completed image analysis.

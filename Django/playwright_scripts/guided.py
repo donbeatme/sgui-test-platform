@@ -15,7 +15,7 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .contract import validate
+from .contract import validate, normalize
 from .acceptance import basic_build
 from .errors import model_error_message
 from .models import ScriptBuild, ScriptVersion
@@ -24,7 +24,7 @@ from .date_parameters import resolve_parameters
 from .planning import (PLAN_PROMPT, obligations, validate_plan, compact_page,
                        contradictory_absence, cached_steps, patch_statements, reject_frozen_relative_dates, compact_hints)
 
-STRATEGY = 'guided-v2'
+STRATEGY = 'guided-v3'
 MAX_SEGMENTS = 60
 
 
@@ -67,10 +67,14 @@ record.dismiss_panel(panel=真实面板,dismiss=真实关闭按钮或弹层外�
 
 
 def is_guided(build):
-    return (build.observation or {}).get('strategy') in ('guided-v1', STRATEGY)
+    return (build.observation or {}).get('strategy') in ('guided-v1', 'guided-v2', STRATEGY)
 
 
 def is_v2(build):
+    return (build.observation or {}).get('strategy') in ('guided-v2', STRATEGY)
+
+
+def is_v3(build):
     return (build.observation or {}).get('strategy') == STRATEGY
 
 
@@ -103,16 +107,16 @@ def wrap_fragment(body, number):
         number, textwrap.indent(body.strip(), '        '))
 
 
-def fragment_statements(body, number, parameters):
-    if not isinstance(body, str) or not body.strip() or len(body) > 9000:
+def fragment_statements(body, number, parameters, prefix=None):
+    if not isinstance(body, str) or not body.strip() or len(body) > 30000:
         raise ValueError('单步操作内容为空或过长。')
-    code = wrap_fragment(body, number)
+    body_code, _ = normalize(wrap_fragment(body, number))
+    statements = ast.parse(body_code).body[0].body[0].body
+    body = '\n'.join(ast.unparse(s) for s in statements)
+    code = wrap_fragment('\n'.join([*(prefix or []), body]), number)
     issues = validate(code, {'steps': [{'step_number': number}]}, parameters, partial=True)
     if issues:
         raise ValueError('；'.join(issues[:4]))
-    statements = ast.parse(code).body[0].body[0].body
-    if len(statements) > 12:
-        raise ValueError('每批最多十二条操作或断言。')
     # Preserve exact executable AST, not a later model paraphrase of tool logs.
     return [ast.unparse(s) for s in statements]
 
@@ -154,7 +158,7 @@ def review_events(history):
 
 def initialize(build, previous=None):
     first = str(build.script.snapshot['steps'][0]['step_number'])
-    policy = {key: deepcopy(build.observation[key]) for key in ('acceptance', 'acceptance_versions')
+    policy = {key: deepcopy(build.observation[key]) for key in ('acceptance', 'acceptance_versions', 'motion_policy')
               if key in (build.observation or {})}
     return {**policy, 'strategy': (build.observation or {}).get('strategy', STRATEGY), 'previous_failure': previous or {}, 'guided': {
         'step_index': 0, 'seq': -1, 'pending': False, 'command': None,
@@ -255,7 +259,8 @@ def claim(build):
     build.save()
     return {'kind': 'guided', 'id': build.pk, 'lease_token': str(build.lease_token),
         'base_url': build.script.generation_context['base_url'], 'snapshot': build.script.snapshot,
-        'headless': build.headless, 'timeout_seconds': 1200}
+        'headless': build.headless, 'timeout_seconds': 1200,
+        'reduce_motion': build.observation.get('motion_policy') == 'reduced'}
 
 
 def update(user, worker_id, operation, payload):
@@ -432,6 +437,11 @@ def plan(build_id, lease, seq):
         'locator_hints': build.observation.get('locator_hints', [])}
     repair = state.get('recovery_tail') or state.get('repair_candidates', {}).get(str(number), [])
     prefix = state['accepted'].get(str(number), [])
+    # Python locals survive record.step boundaries in both the live executor
+    # and the exported run() function. Validate against that same scope.
+    completed_prefix = [line for step in script.snapshot['steps'][:state['step_index']]
+                        for line in state['accepted'].get(str(step['step_number']), [])] if is_v3(build) else []
+    validation_prefix = completed_prefix + prefix
     if prefix and repair[:len(prefix)] == prefix:
         repair = repair[len(prefix):]
     if is_v2(build):
@@ -449,12 +459,24 @@ def plan(build_id, lease, seq):
         context['previous_failure'] = {k: v for k, v in context['previous_failure'].items() if k in ('error', 'review', 'step_numbers')}
         context['accepted_code'] = {str(number): prefix}
         context['completed_steps'] = [s['step_number'] for s in script.snapshot['steps'][:state['step_index']]]
+    if is_v3(build):
+        from .script_language import Language, RESERVED
+        bindings = Language()
+        bindings.statements(ast.parse('\n'.join(validation_prefix)).body)
+        context['available_variables'] = {k: v for k, v in bindings.names.items() if k not in RESERVED}
+        # The source case already supplies actions and expectations. Do not
+        # send the old, duplicate full-coverage planning checklist in basic mode.
+        for key in ('obligations', 'execution_plan', 'blocking_review'):
+            context.pop(key, None)
     context['format_feedback'] = state.get('format_feedback')
     command, error, repairable, data, blocker_check = None, '', False, {}, None
     try:
         model = LLMConfig.objects.get(pk=script.model_id)
         prompt = PROMPT
-        if basic_build(build):
+        if is_v3(build):
+            from .generation_prompt import PROMPT as practical_prompt
+            prompt = practical_prompt
+        if basic_build(build) and not is_v3(build):
             prompt = prompt.replace(
                 'complete=true 仅表示本步骤全部预期已用真实 expect 验证；还需独立复跑才能交付。',
                 'complete=true 表示本步骤操作已完成，已生成的断言已执行；纯操作步骤可以没有断言。还需独立复跑才能交付。')
@@ -465,7 +487,7 @@ complete=true 表示当前步骤的操作已经完成；纯操作步骤不强制
         if not isinstance(data, dict):
             raise ValueError('模型未返回有效的单步操作。')
         if data.get('blocked'):
-            if is_v2(build):
+            if is_v2(build) and not is_v3(build):
                 blocker = data.get('blocker')
                 if (not isinstance(blocker, dict) or blocker.get('kind') not in
                         ('missing_control', 'business_mismatch', 'authentication', 'unobservable')
@@ -501,8 +523,9 @@ complete=true 表示当前步骤的操作已经完成；纯操作步骤不强制
         elif is_v2(build) and data.get('patches'):
             if not repair or data.get('body'):
                 raise ValueError('局部补丁需要当前 repair_candidate/recovery_tail，不能同时返回 body。')
-            statements = patch_statements(repair, data['patches'], fragment_statements, number, parameters)
-            issues = validate(wrap_fragment('\n'.join(prefix + statements), number),
+            compile_patch = lambda body, num, params: fragment_statements(body, num, params, prefix=validation_prefix)
+            statements = patch_statements(repair, data['patches'], compile_patch if is_v3(build) else fragment_statements, number, parameters)
+            issues = validate(wrap_fragment('\n'.join(validation_prefix + statements), number),
                 {'steps': [script.snapshot['steps'][state['step_index']]]}, parameters,
                 partial=not data['complete'], require_assertions=not basic_build(build))
             issues = [i for i in issues if '入口地址须使用' not in i]
@@ -511,28 +534,31 @@ complete=true 表示当前步骤的操作已经完成；纯操作步骤不强制
             # A patch may only open a control to inspect its current state.
             # Honor complete=False so the next observation still belongs to
             # this source step, rather than shifting its checks to the next.
-        elif repair and is_v2(build):
+        elif repair and is_v2(build) and not is_v3(build):
             raise ValueError('当前步骤已有可保留代码，请用 patches 局部插入或替换，保留其它操作及断言，不重新自由生成整个步骤。')
         elif isinstance(data.get('body'), str) and not data['body'].strip() and data['complete']:
             accepted = state['accepted'].get(str(number), [])
-            issues = validate(wrap_fragment('\n'.join(accepted), number),
+            issues = validate(wrap_fragment('\n'.join(completed_prefix + accepted), number),
                 {'steps': [script.snapshot['steps'][state['step_index']]]}, parameters,
                 require_assertions=not basic_build(build))
             if any('入口地址须使用' not in issue for issue in issues):
                 raise ValueError('该步骤代码尚不完整，不能只提交完成标记。')
             statements = []
         else:
-            statements = fragment_statements(data.get('body'), number, parameters)
+            statements = fragment_statements(data.get('body'), number, parameters, prefix=validation_prefix)
         if is_v2(build) and not basic_build(build):
             reject_frozen_relative_dates(statements, parameters, timezone.localdate())
         previous = state['accepted'].get(str(number), [])[-1:]
         for earlier, later in zip(previous + statements, statements if previous else statements[1:]):
-            if earlier == later and ast.parse(later).body[0].value.value.func.attr == 'click':
+            node = ast.parse(later).body[0]
+            if (earlier == later and isinstance(node, ast.Expr) and isinstance(node.value, ast.Await)
+                    and isinstance(node.value.value, ast.Call) and isinstance(node.value.value.func, ast.Attribute)
+                    and node.value.value.func.attr == 'click'):
                 raise ValueError('不可连续重复 click 同一个控件；请按已观察到的面板使用 record.ensure_open / choose_option，以便快慢两种运行速度均稳定。')
         command = {'seq': seq, 'step_number': number, 'statements': statements,
             'parameters': parameters, 'complete': data['complete']}
     except Exception as exc:
-        error = str(exc)[:2000] if isinstance(exc, ValueError) else model_error_message(exc)
+        error = str(exc)[:2000] if isinstance(exc, (ValueError, ValidationError)) else model_error_message(exc)
         repairable = isinstance(exc, (ValueError, ValidationError)) and not isinstance(exc, GenerationBlocked)
     with transaction.atomic():
         current = ScriptBuild.objects.select_for_update().filter(pk=build_id, lease_token=lease, status='observing').first()
@@ -568,10 +594,17 @@ def finalize(build_id, lease):
     from .builds import generated
     basic = basic_build(build)
     issues = validate(code, script.snapshot, state['parameters'], require_assertions=not basic)
-    warnings = []
+    warnings = (['本版本按基础可复跑标准生成，重点覆盖操作流程和关键结果；未逐项审核全部业务预期、视觉样式或覆盖率。']
+                if is_v3(build) else [])
     review_incomplete = False
     affected = []
     started = time.monotonic()
+    consolidation = None
+    if not issues and is_v3(build):
+        from .consolidation import consolidate
+        code, notes, consolidation = consolidate(script, code, state['parameters'], build.observation.get('previous_failure', {}))
+        warnings.extend(notes)
+        issues = validate(code, script.snapshot, state['parameters'], require_assertions=False)
     if not issues and not basic:
         evidence = {'case': script.snapshot, 'context': {'base_url': state['parameters']['base_url'],
             'generation_date': timezone.localdate().isoformat(), 'locator_hints': locator_hints(script),
@@ -623,6 +656,12 @@ def finalize(build_id, lease):
                     return
                 current.observation.setdefault('metrics', []).append({'stage': 'format_check' if basic else 'coverage_review', 'attempt': current.attempt,
                     'seconds': round(time.monotonic()-started, 3), 'ok': not issues})
+                if consolidation:
+                    current.observation.setdefault('consolidations', []).append(consolidation)
+                    if consolidation['ok']:
+                        current.observation['guided']['accepted'] = {
+                            str(block.items[0].context_expr.args[0].value): [ast.unparse(s) for s in block.body]
+                            for block in ast.parse(code).body[0].body}
                 current.save()
                 if issues and is_v2(current):
                     restart_learning(current, {'review': issues, 'code': code, 'step_numbers': affected})

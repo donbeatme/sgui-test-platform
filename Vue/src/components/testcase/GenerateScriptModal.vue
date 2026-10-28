@@ -39,7 +39,7 @@ const selectedWorker=computed(()=>workers.value.find(w=>w.worker_id===workerId.v
 const base=()=>`/projects/${props.projectId}/playwright-scripts/`;
 async function loadWorkers(){
   loading.value=true;
-  try{const response=await request.get(base());const data=response.data?.data??response.data;workers.value=data.workers.filter((w:Worker)=>w.runtime_version>=9);if(!workers.value.some(w=>w.worker_id===workerId.value))workerId.value=workers.value[0]?.worker_id||'';}
+  try{const response=await request.get(base());const data=response.data?.data??response.data;workers.value=data.workers.filter((w:Worker)=>w.runtime_version>=11);if(!workers.value.some(w=>w.worker_id===workerId.value))workerId.value=workers.value[0]?.worker_id||'';}
   catch(e:any){Message.error(e?.error||e?.message||'读取执行器失败');}
   finally{loading.value=false;}
 }
