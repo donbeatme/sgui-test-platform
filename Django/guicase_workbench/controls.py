@@ -9,7 +9,34 @@ from rest_framework.exceptions import ValidationError
 
 from . import grounding as ground
 
-TYPES = ('button', 'input', 'select', 'checkbox', 'radio', 'link', 'tab', 'table', 'text', 'image', 'other')
+TYPES = ('button', 'input', 'select', 'checkbox', 'radio', 'switch', 'icon', 'control', 'link', 'tab', 'table', 'text', 'image', 'other')
+REGIONS = ('left_global_navigation', 'top_navigation_toolbar', 'tab_area', 'main_workspace', 'bottom_action_bar')
+
+PERCEPTION_TYPE_MAP = {
+    'button': 'button', 'input': 'input', 'select': 'select', 'checkbox': 'checkbox',
+    'radio': 'radio', 'switch': 'switch', 'link': 'link', 'tab': 'tab',
+    'table': 'table', 'text': 'text', 'image': 'image', 'icon': 'icon',
+    'control': 'control', 'other': 'other',
+}
+
+
+def infer_region(box):
+    """A starting suggestion only: reviewers may correct page-specific layouts."""
+    if not box:
+        return 'main_workspace'
+    x, y, w, h = box
+    cx, cy = x + w / 2, y + h / 2
+    if cy >= .86:
+        return 'bottom_action_bar'
+    if cx < .18:
+        return 'left_global_navigation'
+    if cy < .10:
+        return 'top_navigation_toolbar'
+    if cy < .20:
+        return 'tab_area'
+    return 'main_workspace'
+
+
 SCHEMA = '''额外要求：每个 images 项必须增加 controls 数组（最多 40 个可见控件），每项为
 {"name":"控件名称","type":"button|input|select|checkbox|radio|link|tab|table|text|image|other",
 "text":"可见文案或占位符，无则空","state":"仅描述可见状态，不确定则写未知",
@@ -44,7 +71,90 @@ def normalize_control(value):
         box = [round(v, 6) for v in box]
     if type(value.get('excluded', False)) is not bool:
         raise ValidationError('排除标记必须为布尔值。')
-    return {**clean, 'type': value['type'], 'bbox': box, 'excluded': value.get('excluded', False)}
+    result = {**clean, 'type': value['type'], 'bbox': box, 'excluded': value.get('excluded', False)}
+    if 'region' in value:
+        if value['region'] not in REGIONS:
+            raise ValidationError('控件所属区域无效，请从五个页面分区中选择。')
+        result['region'] = value['region']
+    return result
+
+
+def _perception_elements(value):
+    """Yield formal perception elements from arbitrarily nested region objects."""
+    if isinstance(value, dict):
+        machine = value.get('machine')
+        if isinstance(machine, dict) and 'type' in value:
+            yield value
+            return
+        for child in value.values():
+            yield from _perception_elements(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _perception_elements(child)
+
+
+def _perception_bbox(machine, width, height):
+    """Translate perception xyxy coordinates into the review UI's normalized xywh."""
+    box = machine.get('bbox') if isinstance(machine, dict) else None
+    if not isinstance(box, (list, tuple)) or len(box) != 4:
+        return None
+    try:
+        x1, y1, x2, y2 = (float(v) for v in box)
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(v) for v in (x1, y1, x2, y2)) or width <= 0 or height <= 0:
+        return None
+    x1, x2 = sorted((max(0.0, min(x1, width)), max(0.0, min(x2, width))))
+    y1, y2 = sorted((max(0.0, min(y1, height)), max(0.0, min(y2, height))))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return [round(x1 / width, 6), round(y1 / height, 6),
+            round((x2 - x1) / width, 6), round((y2 - y1) / height, 6)]
+
+
+def page_from_perception(result, image_name):
+    """Convert RapidOCR/OmniParser's five-region JSON into reviewable controls."""
+    if not isinstance(result, dict):
+        raise ValidationError('截图识别结果必须是对象。')
+    image = result.get('image') or {}
+    try:
+        width, height = float(image.get('width')), float(image.get('height'))
+    except (TypeError, ValueError):
+        raise ValidationError('截图识别结果缺少有效的原图宽高。')
+    if not math.isfinite(width) or not math.isfinite(height) or width <= 0 or height <= 0:
+        raise ValidationError('截图识别结果中的原图宽高无效。')
+
+    controls, seen = [], set()
+    for region in REGIONS:
+        for element in _perception_elements(result.get(region)):
+            machine = element.get('machine') or {}
+            identifier = machine.get('id')
+            dedupe = ('id', identifier) if isinstance(identifier, (int, str)) else (
+                'value', element.get('text'), element.get('type'), repr(machine.get('bbox')))
+            if dedupe in seen:
+                continue
+            seen.add(dedupe)
+            visible = str(element.get('text') or '').strip()
+            raw_type = str(element.get('type') or '').strip().lower()
+            control_type = PERCEPTION_TYPE_MAP.get(raw_type, 'control')
+            # A textless visual detection is an icon until a reviewer assigns a
+            # more specific semantic type. Its bbox drives the live crop preview.
+            if not visible and element.get('icon') and control_type in ('button', 'control', 'other'):
+                control_type = 'icon'
+            suffix = str(identifier) if identifier is not None else str(len(controls) + 1)
+            name = visible or ('图标 ' if control_type == 'icon' else '未命名控件 ') + suffix
+            controls.append(normalize_control({
+                'name': name[:120], 'type': control_type, 'text': visible[:600],
+                'state': '可见', 'bbox': _perception_bbox(machine, width, height),
+                'region': region, 'excluded': False,
+            }))
+
+    omitted = max(0, len(controls) - 60)
+    controls = controls[:60]
+    unknowns = ([f'自动识别到的控件超过人工核对上限，另有 {omitted} 个保存在原始识别结果中。']
+                if omitted else [])
+    return {'page': str(image.get('source_filename') or image_name), 'facts': [],
+            'unknowns': unknowns, 'controls': controls}
 
 
 def validate_vision(payload, names):
@@ -95,11 +205,11 @@ def sync_evidence(unit):
     unit['text'] = material_text(unit)
 
 
-def initialize_unit(unit, page):
+def initialize_unit(unit, page, origin='model'):
     unit['page'] = page['page']
     unit['visual_facts'] = copy.deepcopy(page['facts'])
     unit['unknowns'] = page['unknowns']
-    unit['controls'] = [{**c, 'id': f"{unit['id']}-C{i:02d}", 'origin': 'model', 'original': copy.deepcopy(c)}
+    unit['controls'] = [{**c, 'id': f"{unit['id']}-C{i:02d}", 'origin': origin, 'original': copy.deepcopy(c)}
                         for i, c in enumerate(page['controls'], 1)]
     sync_evidence(unit)
 

@@ -113,6 +113,10 @@ class ScopedRepairTests(TestCase):
 
     def test_preparation_is_saved_before_actions_and_reused_on_repair(self):
         self.start(); self.next(0)
+        # This specifically exercises the retained strict policy, not replay_once.
+        self.build.refresh_from_db()
+        self.build.observation.pop('acceptance', None)
+        self.build.save()
         prepared = {'setup': [{'source_id': 'P1', 'step_number': 1, 'prepare': 'Prepare', 'verify': 'Verify'}],
             'steps': [{'step_number': n, 'action': f'Action {n}', 'checks': [{'source_id': f'E{n}', 'verify': f'Check {n}'}]} for n in (1, 2, 3)]}
         with patch('guicase_workbench.tasks.invoke', return_value=json.dumps(prepared)), patch('langgraph_integration.models.LLMConfig.objects.get'):

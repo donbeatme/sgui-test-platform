@@ -418,7 +418,28 @@ class RunnerTests(unittest.TestCase):
     def test_ambiguous_panel_is_not_silently_picked(self):
         outcome = self.popup(panel='ul')
         self.assertEqual(outcome['status'], 'error', outcome['summary'])
-        self.assertIn('匹配多个面板', outcome['summary'])
+        self.assertIn('匹配多个', outcome['summary'])
+
+    def test_hidden_panel_duplicates_are_ignored_but_visible_ambiguity_is_rejected(self):
+        from replay_actions import PopupActions
+        async def check():
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                try:
+                    page = await browser.new_page()
+                    await page.set_content('''<input id="city"><button id="open" onclick="document.querySelector('#active').hidden=false">Open</button>
+<ul class="panel" hidden><li>Paris</li></ul>
+<ul class="panel" id="active" hidden><li onclick="document.querySelector('#city').value='Paris';this.parentElement.hidden=true">Paris</li></ul>''')
+                    actions = PopupActions()
+                    await actions.choose_option(trigger=page.locator('#open'), panel=page.locator('.panel'),
+                        value=page.locator('#city'), expected_value='Paris', option_selector='li')
+                    self.assertEqual(await page.locator('#city').input_value(), 'Paris')
+                    await page.locator('.panel').evaluate_all('els=>els.forEach(e=>e.hidden=false)')
+                    with self.assertRaisesRegex(ValueError, '多个可见面板'):
+                        await actions._panel_state(page.locator('.panel'))
+                finally:
+                    await browser.close()
+        asyncio.run(check())
 
     def test_date_selection_uses_scoped_css(self):
         outcome = self.popup(expected='2026-10-22', option='option_selector="[data-date=\\"2026-10-22\\"]"')

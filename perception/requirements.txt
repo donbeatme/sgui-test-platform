@@ -1,0 +1,12 @@
+# Python 3.10; core OCR + YOLO service. Versions observed on the original host.
+# CPU PyTorch; use a separate environment from Django.
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy==1.26.4
+Pillow==12.3.0
+requests==2.34.2
+opencv-python==4.11.0.86
+onnxruntime==1.23.2
+rapidocr-onnxruntime==1.4.4
+ultralytics==8.3.70
+torch==2.14.0+cpu
+torchvision==0.29.0+cpu

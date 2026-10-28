@@ -22,6 +22,12 @@ HELPERS = {'ensure_open', 'choose_option', 'expect_closed', 'dismiss_panel', 'ob
 
 
 def runtime_required(code, parameters=None):
+    from .script_language import required
+    try:
+        if required(ast.parse(code)):
+            return 10
+    except (SyntaxError, ValueError):
+        pass
     if any(isinstance(v, str) and v.startswith('{{date:') for v in (parameters or {}).values()):
         return 8
     try:
@@ -166,7 +172,7 @@ def normalize(code):
         def visit_Call(self, node):
             self.generic_visit(node)
             if (isinstance(node.func, ast.Attribute) and node.func.attr in {'first', 'last'}
-                    and _root(node) == 'page' and not node.args and not node.keywords):
+                    and not node.args and not node.keywords):
                 fixes.append(f'已自动将 .{node.func.attr}() 转换为 Python Playwright 的 .{node.func.attr} 属性。')
                 return ast.copy_location(node.func, node)
             return node
@@ -193,6 +199,14 @@ def validate(code, snapshot, parameters=None, *, partial=False, require_assertio
             or any(a.annotation for a in function.args.args)):
         return ['函数签名须为 async def run(page, params, record):。']
     numbers = []
+    from .script_language import required, validate_function
+    if required(tree):
+        errors = validate_function(function, snapshot, partial=partial, require_assertions=require_assertions)
+        if not partial and 'base_url' not in parameter_keys(code):
+            errors.append('入口地址须使用 params["base_url"] 或 params.get("base_url")。')
+        if parameters is not None:
+            errors.extend(parameter_errors(tree, parameters))
+        return list(dict.fromkeys(errors))[:30]
     for block in function.body:
         if not isinstance(block, ast.AsyncWith) or len(block.items) != 1:
             errors.append('每个业务步骤必须使用 async with record.step(步骤编号):。')
@@ -305,6 +319,8 @@ def parameter_errors(tree, parameters):
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             if node.func.attr in ('to_have_url', 'not_to_have_url'):
                 arg = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg == 'url'), None)
+                if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and _root(arg) == 're' and arg.func.attr == 'compile':
+                    continue
                 value = scalar(arg)
                 if not isinstance(value, str) or not value.strip():
                     errors.append('to_have_url 必须提供非空的完整预期 URL。')

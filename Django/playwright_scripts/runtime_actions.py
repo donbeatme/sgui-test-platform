@@ -7,6 +7,28 @@ import asyncio
 from playwright.async_api import expect, TimeoutError as PlaywrightTimeout
 
 
+async def prepare_browser_context(context):
+    """Reduce visual motion consistently during learning, replay and export.
+
+    Keep a non-zero duration so transition/animation-end handlers still fire.
+    This changes visual timing only: no forced clicks or hidden/disabled controls.
+    """
+    await context.add_init_script('''(() => {
+      const install = () => {
+        if (!document.documentElement) return false;
+        const style = document.createElement('style');
+        style.id = 'sgui-replay-motion';
+        style.textContent = '*,*::before,*::after{animation-delay:0s!important;animation-duration:0.001s!important;transition-delay:0s!important;transition-duration:0.001s!important;scroll-behavior:auto!important}';
+        document.documentElement.appendChild(style);
+        return true;
+      };
+      if (!install()) {
+        const observer = new MutationObserver(() => { if (install()) observer.disconnect(); });
+        observer.observe(document, {childList:true,subtree:true});
+      }
+    })();''')
+
+
 class ReplayStopped(Exception):
     """Observed/unknown state ended the case without claiming business success."""
 
@@ -99,7 +121,12 @@ class PopupActions:
     async def _panel_state(self, panel):
         count = await panel.count()
         if count > 1:
-            raise ValueError('浮层定位器匹配多个面板，请使用所属容器或有依据的索引限定范围。')
+            # Many apps keep inactive popups mounted. Hidden copies are not
+            # ambiguous; two actually displayed panels still need scoping.
+            states = await panel.evaluate_all('elements => elements.map(' + PANEL_STATE + ').filter(state => state.shown)')
+            if len(states) > 1:
+                raise ValueError('浮层定位器匹配多个可见面板，请限定所属容器。')
+            return states[0] if states else {'shown': False, 'geometry': []}
         if not count:
             return {'shown': False, 'geometry': []}
         try:
@@ -245,8 +272,9 @@ class PopupActions:
             try:
                 await self.ensure_open(trigger=trigger, panel=panel, label=label, timeout_ms=timeout_ms)
                 # Build the option *inside* the supplied panel, never on the page.
-                option = (panel.locator(option_selector) if option_selector else
-                          panel.get_by_role(option_role, name=option_name, exact=True))
+                visible_panel = panel.filter(visible=True)
+                option = (visible_panel.locator(option_selector) if option_selector else
+                          visible_panel.get_by_role(option_role, name=option_name, exact=True)).filter(visible=True)
                 phase = '定位候选项'
                 await self._unique(option, label + '候选项', timeout_ms)
                 phase = '点击候选项'

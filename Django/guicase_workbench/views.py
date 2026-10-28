@@ -48,6 +48,7 @@ def job_data(job, full=True):
         from .generation_profiles import profile_for
         progress['generation_profile_label'] = profile_for(job.options)['label']
         data['generation_profile'] = job.options.get('generation_profile', 'detailed')
+        data['image_analysis'] = job.options.get('image_analysis', 'vision_model')
         image_batches = state.get('vision_batches', [])
         image_outputs = state.get('vision_outputs', {})
         image_total = len(job.input.get('images', []))
@@ -240,6 +241,9 @@ class WorkbenchView(APIView):
         if operation == 'generate':
             from .generation_profiles import validate_profile
             profile = validate_profile(request.data.get('generation_profile', 'detailed'))
+            image_analysis = request.data.get('image_analysis', 'vision_model')
+            if image_analysis not in ('vision_model', 'perception_v1'):
+                raise ValidationError('图片解析方式无效。')
             if GenerationJob.objects.filter(project=self.project, status__in=['queued', 'running']).count() >= 2:
                 raise ValidationError('当前项目已有 2 个进行中的任务，请等待完成或先取消。')
             stages = copy.deepcopy(config.stages)
@@ -250,11 +254,11 @@ class WorkbenchView(APIView):
                         stages[key] = int(raw)
                     except (ValueError, TypeError):
                         raise ValidationError('模型 ID 无效。')
-            options = {'grounding_version': 1, 'control_review_version': 1, 'rules': config.rules, 'prompts': {**DEFAULT_PROMPTS, **config.prompts}, 'stages': stages}
+            options = {'grounding_version': 1, 'control_review_version': 1, 'image_analysis': image_analysis, 'rules': config.rules, 'prompts': {**DEFAULT_PROMPTS, **config.prompts}, 'stages': stages}
             options['generation_profile'] = profile
             resolve_model(options, 'text', required=True)
-            data = self.prepare_input(request)
-            if data['images']:
+            data = self.prepare_input(request, require_vision=image_analysis == 'vision_model')
+            if data['images'] and image_analysis == 'vision_model':
                 resolve_model(options, 'vision', required=True)
             title = str(request.data.get('title') or '').strip()[:200]
             options['auto_title'] = not bool(title)
@@ -268,7 +272,7 @@ class WorkbenchView(APIView):
             return Response(job_data(job), status=201)
         raise ValidationError('不支持的操作。')
 
-    def prepare_input(self, request):
+    def prepare_input(self, request, require_vision=True):
         text = str(request.data.get('text', '')).strip()
         if len(text) > MAX_TEXT_CHARS:
             raise ValidationError(f'直接输入的需求最多 {MAX_TEXT_CHARS:,} 字符。')
@@ -316,7 +320,10 @@ class WorkbenchView(APIView):
             if not f.size:
                 raise ValidationError(f'文档 {f.name} 是空文件，请重新选择。')
         # Validate vision before writing uploaded files.
-        if image_files or request.data.get('include_document_images') == 'true':
+        if not require_vision and (image_files or request.data.get('include_document_images') == 'true'):
+            from .perception_client import require_configuration
+            require_configuration()
+        if require_vision and (image_files or request.data.get('include_document_images') == 'true'):
             stages = configuration(self.project).stages.copy()
             if request.data.get('vision_model_id'):
                 try:

@@ -3,11 +3,12 @@ import asyncio
 import base64
 import json
 import os
+import re
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from playwright.async_api import async_playwright, expect, TimeoutError as PlaywrightTimeout, Error as PlaywrightError
-from replay_actions import PopupActions, ReplayStopped, ReplayNotApplicable
+from replay_actions import PopupActions, ReplayStopped, ReplayNotApplicable, prepare_browser_context
 from page_evidence import capture_page_evidence
 from date_parameters import resolve_parameters
 
@@ -118,13 +119,17 @@ async def execute(job):
             browser = await p.chromium.launch(headless=job.get('headless', False))
             try:
                 # Separate context for each run: no personal browser profile or implicit login copy.
-                context = await browser.new_context(viewport={'width': 1440, 'height': 900})
+                context = await browser.new_context(viewport={'width': 1440, 'height': 900},
+                    reduced_motion='reduce' if job.get('reduce_motion') else 'no-preference')
+                if job.get('reduce_motion'):
+                    await prepare_browser_context(context)
                 page = await context.new_page()
                 page.set_default_timeout(15000)
                 page.set_default_navigation_timeout(45000)
                 record = Recorder(page, job['snapshot'], job.get('diagnostic_only') is True,
                                   require_screenshots=not basic)
-                scope = {'__builtins__': {}, 'expect': expect}
+                scope = {'__builtins__': {}, 'expect': expect, 're': re, 'range': range,
+                         'len': len, 'str': str, 'int': int, 'float': float, 'bool': bool, 'min': min, 'max': max}
                 exec(compile(job['code'], '<saved-playwright-script>', 'exec'), scope)
                 await asyncio.wait_for(scope['run'](page, parameters, record), timeout=job.get('timeout_seconds', 600))
                 if [s['step_number'] for s in record.steps] != list(record.expected) or any(s['status'] != 'pass' for s in record.steps):

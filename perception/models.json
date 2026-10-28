@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "model": "OmniParser-v2.0 icon_detect (YOLOv8)",
+  "source": "https://huggingface.co/microsoft/OmniParser-v2.0",
+  "license": "AGPL-3.0 (icon_detect weights; see upstream model card)",
+  "files": [
+    {
+      "path": "OmniParser/weights/icon_detect/model.pt",
+      "url": "https://huggingface.co/microsoft/OmniParser-v2.0/resolve/main/icon_detect/model.pt",
+      "sha256": "dab3d4351ad00b035db829909a4db98354d5a90f6990e4ac00222a9a95d4bf57",
+      "size": 40623819
+    }
+  ]
+}

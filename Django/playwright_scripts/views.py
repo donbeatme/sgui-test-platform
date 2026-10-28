@@ -22,7 +22,7 @@ from .models import SavedScript, ScriptVersion, ScriptRun, ScriptWorker, ScriptB
 from .services import save_version, redact, generate_from_case, enqueue_generation
 from .contract import validate, parameter_keys, runtime_required
 from .review import version_review
-from .acceptance import REPLAY_ONCE, basic_version, required_replays, replay_verified
+from .acceptance import REPLAY_ONCE, basic_version, required_replays, replay_verified, reduced_motion_version
 from .builds import (options_for, start_build, build_data, cancel_build, claim_observation,
                      observation_update, run_finished, expire_builds, ACTIVE_BUILDS, is_diagnostic_run)
 
@@ -120,7 +120,10 @@ class ScriptView(APIView):
             version = get_object_or_404(ScriptVersion, pk=request.query_params.get('version'), script=script)
             if version.origin == 'guided' and not replay_verified(version):
                 raise ValidationError(f'脚本尚未完成所需的 {required_replays(version)} 次独立复跑，暂不能下载。')
-            from .export import standalone
+            from .export import standalone, bundle
+            if request.query_params.get('download_format') == 'zip':
+                return HttpResponse(bundle(version), content_type='application/zip',
+                    headers={'Content-Disposition': f'attachment; filename="case_{script.testcase_id}_v{version.number}.zip"'})
             return HttpResponse(standalone(version), content_type='text/x-python; charset=utf-8',
                 headers={'Content-Disposition': f'attachment; filename="case_{script.testcase_id}_v{version.number}.py"'})
         return Response(script_data(script, True))
@@ -186,7 +189,7 @@ class ScriptView(APIView):
                 worker = ScriptWorker.objects.filter(worker_id=worker_id, user=request.user, heartbeat_at__gt=timezone.now()-timedelta(seconds=30)).first()
                 if not worker:
                     raise ValidationError('执行器未在线，请启动执行器后刷新列表。')
-                if worker.runtime_version < max(runtime_required(version.code, version.parameters), 9 if basic_version(version) else 0):
+                if worker.runtime_version < max(runtime_required(version.code, version.parameters), 11 if reduced_motion_version(version) else 9 if basic_version(version) else 0):
                     raise ValidationError('该脚本使用新版运行能力，请更新并重启执行器后运行。')
                 headless = request.data.get('headless', False)
                 if type(headless) is not bool or (not headless and not worker.supports_headed):
@@ -284,7 +287,7 @@ class WorkerView(APIView):
                     errors = []  # Coverage is deliberately unresolved, never a passing test.
                 basic = basic_version(run.version)
                 errors += validate(run.version.code, run.version.script.snapshot, run.parameters, require_assertions=not basic)
-                if runtime < max(runtime_required(run.version.code, run.parameters), 9 if basic else 0,
+                if runtime < max(runtime_required(run.version.code, run.parameters), 11 if reduced_motion_version(run.version) else 9 if basic else 0,
                                  6 if diagnostic else 4 if (run.result.model_info or {}).get('build_id') else 0):
                     finish_execution(run.result_id, forced='error', reason='执行器版本不支持此脚本的运行能力，请更新执行器。')
                     run.status = 'error'
@@ -307,6 +310,7 @@ class WorkerView(APIView):
                     'capture_evidence': bool((run.result.model_info or {}).get('build_id')),
                     'diagnostic_only': diagnostic,
                     'acceptance': REPLAY_ONCE if basic else 'legacy',
+                    'reduce_motion': reduced_motion_version(run.version),
                     'timeout_seconds': run.timeout_seconds}})
         run = get_object_or_404(ScriptRun, pk=request.data.get('run_id'), worker_id=worker_id, worker_user=request.user)
         if str(run.lease_token) != str(request.data.get('lease_token')):

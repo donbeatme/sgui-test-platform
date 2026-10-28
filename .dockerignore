@@ -74,3 +74,9 @@ Thumbs.db
 
 # zcode
 .zcode/
+# Host perception runs in its own Python environment
+perception/OmniParser/weights/
+perception/.service.env
+perception/.venv/
+perception/ui_memory/
+.perception-integration-backups/

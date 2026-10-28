@@ -99,18 +99,14 @@ docs/competitive-analysis/
 
 /local/sgui-cleanup-backup-2026-09-14/
 
-# Publication exclusions
-# Private local configuration and generated output
-/Actuator/config.toml
-/local/memory-optimization/
-/local/*-process.json
-/local/*credentials*
-**/test-results/
-**/playwright-report/
-*.sql
-*.dump
-*.pem
-*.key
-
-.venv/
-venv/
+# Independent perception runtime assets and local configuration
+/perception/.service.env
+/perception/.venv/
+/perception/OmniParser/weights/
+/perception/ui_memory/
+/perception/quality_output*/
+/.perception-integration-backups/
+*.bak
+*.bak_*
+*.tsbuildinfo
+/Vue/.perception-ui-test/

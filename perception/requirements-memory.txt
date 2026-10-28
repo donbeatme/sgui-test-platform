@@ -1,0 +1,3 @@
+# Optional visual-memory experiments only.
+-r requirements.txt
+timm==1.0.29
